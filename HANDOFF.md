@@ -1,0 +1,170 @@
+# PhET Route — Handoff Brief
+
+A personal, non-commercial project. Nothing customer-facing.
+
+## What this is
+
+A single continuous **route** through ~90 PhET simulations, running from the nucleus to
+deep space and passing through human scale on the way. The user travels along it. Sims
+appear as objects placed in the world at the point on the route where they belong.
+
+The route has three sections and two **passages** (bespoke animated transitions that join
+them):
+
+```
+nucleus → atom → molecule → cell
+                              |
+                    [passage: out of the head]
+                              |
+  beach → lighthouse → playground → city → lab → flatirons
+                                                     |
+                                        [passage: off the summit]
+                                                     |
+                                 atmosphere → orbit → deep space
+```
+
+13 stops. **The Foothills used to be a 14th** and the Flatirons used to hold zero
+sims as a deliberate breath before the ascent. Both are gone: an empty stop read
+as a stall, not a breath. The Foothills folded into the Flatirons — its three
+sims now sit at the trailhead at the base of the slabs, its hills are the rear
+parallax layer of that scene, and the breath is now the empty rock *above* the
+slot row rather than an empty stop. It costs no stop and it reads better. Don't
+re-split them without a reason.
+
+The small scales are abstract (glow, particles, gradients). The ground is illustrated —
+a stylised landscape you move laterally through. The large scales go abstract again.
+
+**The two passages are the emotional core.** The first: a neuron fires, the camera pulls
+back through dendrites and tissue and out through a character's temple, and they're on a
+beach mid-frisbee-throw. Small things aren't in a jar, they're in you. The second: leave
+the Flatirons and climb into orbit. Both are hand-animated, both come late (Stage 5).
+
+## Files
+
+| File | What it is |
+|---|---|
+| `route.json` | **Single source of truth.** Scales, topics, sections, landmarks, passages, every sim's placement, plus what was excluded and why. |
+| `validate.js` | `node validate.js` — diffs the manifest against the original list, checks referential integrity, prints a density and topic-spread report. Run it after any manifest edit. |
+| `original-list.txt` | The 143 raw PhET slugs. Only input to validation. |
+| `index.html` | The grey-box viewer: all CSS, all markup. Landmark geometry classes live here. |
+| `route-app.js` | Camera, scene builders, sky/light tables, HUD. One `BUILD.<landmark>` function per surface landmark. |
+| `build-data.js` | `node build-data.js` — regenerates `route-data.js` from `route.json` so the page works over `file://`. **Run it after every manifest edit** or the fallback goes stale. |
+| `route-data.js` | Generated. Don't hand-edit. |
+| `energy skatepark/`, `soccer common/` | PhET art assets copied in. Nothing in the grey-box references them; they're sitting here for Stage 4. |
+
+Serve it rather than opening the file directly — `.claude/launch.json` has an
+`http-server` config on port 5177. `file://` works via `route-data.js`, but the
+fetch path is the one Stage 2 will use.
+
+Current state: all 143 accounted for. 90 placed (78 primary + 12 variants), 2 off-route
+tools, 51 excluded (40 pure math, 9 dev/test scaffolding, 2 deferred statistics sims).
+
+## Two axes
+
+**Scale** is the vertical axis and it *is* the route order. **Topic** is not spatial —
+it's an overlay. Toggling a topic lights up its sims wherever they fall and draws
+connecting lines across the route. Constellation lines over a landscape. This is what
+gives a one-dimensional route the feeling of depth, and it's the main interaction idea
+worth protecting.
+
+**Topic queries must use `topic` + `also`, not `topic` alone.** Electromagnetism and
+mechanics have every primary-tagged sim in the human band; their cross-scale reach lives
+entirely in the `also` arrays (`neuron`, `molecule-polarity`, `photoelectric-effect`,
+`atomic-interactions`). Query primary only and the overlay lights one landmark and dies.
+Render primary nodes solid, secondary dimmer.
+
+## Decisions already made — don't relitigate without reason
+
+- **Hosted iframes, not local sim repos.** Unbuilt local needs ~100 sibling repos; built
+  local is several MB per sim, hundreds of MB total. Hosted is PhET's supported embed
+  path, CC-BY, CDN-backed, and gives shareable URLs. Keep *thumbnails* local so the map
+  itself renders with no network.
+- **Plain DOM + CSS transforms.** The camera is discrete stops on a line — a `translate3d`
+  and a `scale` on a few containers. Pixi is the fallback if parallax gets heavy.
+  `scenery-stack` (PhET's own libs, packaged for outside use) was considered: its DOM
+  renderer would let an iframe live inside the scene graph, but transformed cross-origin
+  iframes go blurry and hit-test badly anyway, so you'd snap to scale 1 on activation and
+  lose the advantage. Thin outside docs, small community. Not worth it.
+- **Facades, not live embeds.** A warm PhET sim looks almost identical to its screenshot,
+  because these sims are static until you drag something. Static thumbnail with
+  `pointer-events: none`, one click to activate, exactly one live iframe at a time.
+  6 sims have idle motion (`idleMotion: true` in the manifest) — give those a short
+  looping clip, not a live iframe.
+- **`-basics` twins are not their own nodes.** They're a difficulty toggle on the parent.
+  Same for `-virtual-lab` and the black-box study. See `variantOf` / `variantKind`.
+  `capacitor-lab-basics` is named `-basics` but has no parent here — it's standalone.
+
+## The modal trap — the one real UX hazard
+
+A PhET sim is a cross-origin iframe. Once the pointer is over a live one, the parent page
+gets **zero** events: wheel-to-zoom stops reaching your canvas, `Escape` never fires, you
+can't read or reset anything. Entering costs one click; leaving requires an exit you built.
+
+Two rules, both cheap, both non-negotiable:
+
+1. Facade until activated (above).
+2. **A live sim never touches the viewport edge.** Keep a visible gutter of parent-owned
+   chrome around it — back button, breadcrumb, scrim. The gutter is where the mouse goes
+   to escape. Edge-to-edge iframe = trap.
+
+Also: set `allow` restrictively or several sims will chirp at once.
+
+## Stages
+
+- **0 — Manifest.** ✅ Done. One task remains: **verify the two URL templates in
+  `meta` against 3–4 slugs including a hyphenated one**, then set `urlTemplatesVerified`.
+  Everything in Stage 2 assumes them.
+- **1 — Grey-box route.** ← *you are here, and it traverses.* Geometry for landmarks,
+  labeled boxes for sim slots, stick-figure character. Discrete camera stops, eased
+  transitions, arrows / scroll / drag / dot-strip all work. Built on top of that:
+  three parallax depth layers per scene (`--pf` / `--pxu`, see the CSS), a single
+  light source that travels the route so the day arc runs alongside the scale arc
+  (morning at the beach → sunset behind the Flatirons → stars by orbit), and a
+  star field that fades in over the ascent. Remaining: the pacing work below.
+- **2 — Sim launch.** Facade → click → expand → iframe with a parent-DOM top bar → back
+  restores exact camera position. Snap camera to scale 1 during expansion.
+- **3 — Topic overlay.** Build **waves-light first** (16 sims across 5 scales — it
+  exercises the whole route). Gravity second.
+- **4 — Art.** 4a: the beach alone, full treatment, to get a real per-scene cost. 4b: city,
+  lab, playground, Flatirons, then the abstract scales last (they survive grey-box longest).
+  Likely half the total effort.
+- **5 — The two passages.**
+- **6 — Polish.** URL state, local thumbnails, basics toggle, keyboard/focus across the
+  iframe boundary, touch.
+
+Honest cut line: after **4a**. Grey-boxed route + one finished scene + working launch +
+topic overlay is already a real thing.
+
+## Stage 1 scope
+
+Build only what the route needs: **discrete stops on a line.** Do not build a general
+camera that supports arbitrary paths, free pan, or continuous zoom until something asks
+for it. This is the most likely place to over-engineer.
+
+Pacing is the deliverable, and it can't be designed on paper — you need to *feel* that the
+atom section ends too fast or the city drags. **Expect to reorder stops and split or merge
+landmarks after an hour of moving through it.** That's the stage working, not failing.
+Edit `route.json` and re-run `validate.js` rather than hard-coding positions in markup.
+
+## Known issues to resolve in Stage 1
+
+- **The city is overloaded** — 14 primary + 3 variants, against 3 at the Flatirons. Its
+  slot rows now stack three high and fill the sky above the skyline. Either split it into
+  two adjacent landmarks (residential street: static + circuits / power district:
+  magnetism + generation), or let the camera pan laterally *within* the city so it's a
+  short side-scroller inside the larger route. The second is more interesting and reuses
+  machinery the lab corridor wants anyway. **This is the biggest remaining Stage 1 item.**
+- **The ground band is dead weight at some stops.** Everything below `GROUND_Y` is the
+  near layer's territory, and where a landmark has no foreground element (currently the
+  Lab most of all) the bottom third is flat dark nothing. Fix per-landmark by adding near
+  geometry, not by moving `GROUND_Y`.
+- **A long jump feels slow, but the spring isn't the cause.** It's linear, so its settle
+  time doesn't depend on distance. Frame rate is what to look at — `.slot` deliberately
+  has no `backdrop-filter` for this reason, and the readout only rewrites when the
+  nearest stop changes. Measure in a real window; a background or non-compositing tab
+  throttles `requestAnimationFrame` and will lie to you.
+- **Some sims belong to more than one place.** `friction` shows literal atoms; 
+  `energy-forms-and-changes` spans four scales; `wave-interference` is both classical and 
+  quantum. Plan for ghost nodes — translucent repeats at the secondary location — so the 
+  same icon is visible from multiple altitudes. The repetition is the point: it's how you 
+  *feel* that a concept is scale-invariant.
