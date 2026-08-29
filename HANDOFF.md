@@ -51,7 +51,7 @@ the Flatirons and climb into orbit. Both are hand-animated, both come late (Stag
 | `build-data.js` | `node build-data.js` — regenerates `route-data.js` from `route.json` so the page works over `file://`. **Run it after every manifest edit** or the fallback goes stale. |
 | `route-data.js` | Generated. Don't hand-edit. |
 | `energy skatepark/` | PhET skater sprites, 180x242 PNGs, consistently registered (head centre at about 49%/23% of the frame). The grey-box uses these for the beach character and the city crowd. |
-| `soccer common/` | PhET kicker sprites, SVG. Unused so far — kept for Stage 4. |
+| `soccer common/` | PhET kicker sprites, SVG. Standing people; used in the beach and city crowds alongside the skaters. |
 
 The `_png.ts` / `_svg.ts` sidecar modules that shipped with both asset folders have
 been deleted (311 files). They are PhET's base64 build artefacts and nothing here
@@ -71,10 +71,11 @@ Three moves between stops, all falling out of one set of world coordinates
 every scale — a scene at exponent E measures `2^E` world units per one of its own):
 
 - **pan** — sideways, inside the human band.
-- **climb** — straight up, for anything in the `ascent` section. You leave the
-  Flatirons by *rising off it*, not by backing away from it: the rock drops out of
-  frame below while the atmosphere comes down into it. Zoom still happens on the
-  same move, so it reads as a launch rather than a lift.
+- **climb** — straight up, and **no zoom at all**. You leave the Flatirons by
+  *rising off it*: the rock drops out of the bottom of the frame and you are left
+  in empty sky with the ground gone. The reveal is deliberately held for the *next*
+  move — orbit zooms out, and the thing you climbed off turns out to be a planet.
+  Launch, then reveal; doing both at once read as backing away rather than going up.
 - **nest** — a scene pinned to a point inside the next one out, via `NEST`. Only
   the beach uses it, and it is what makes the first passage work: the neural-tissue
   scene is pinned to the head of the character standing on the sand, so pulling out
@@ -82,8 +83,74 @@ every scale — a scene at exponent E measures `2^E` world units per one of its 
   `HERO` and the anchor follows; the camera keyframes read it before any scene is
   built, which is why `HERO` is declared at the top of the file.
 
-Corollary: **smaller scales draw in front of larger ones** (`zIndex = 1000 - ds*10`).
-They are nested *inside* them. Reverse it and the neuron hides behind the skull.
+A landmark can name its own move in `route.json` (`"move": "pan" | "zoom" | "climb"`,
+validated). Only the atmosphere does; everything else falls out of the default rule
+— pan inside the human band, zoom elsewhere. A zoom edge can also set its own
+magnitude (`"zoom": 1.2` on orbit, default `ZOOM_STEP` 2.2): a full step out of the
+atmosphere made the planet feel like a retreat rather than an arrival.
+
+Two corollaries, both load-bearing:
+
+- **Smaller scales draw in front of larger ones** (`zIndex = 1000 - ds*10`). They are
+  nested *inside* them. Reverse it and the neuron hides behind the skull.
+- **A neighbouring scale is gone by one stop, in both directions.** The fade is
+  measured in zoom *edges* (`zis`, incremented once per zoom transition), not in
+  octaves — so changing one edge's magnitude does not change how anything fades.
+  Measure it in octaves and shortening the atmosphere-to-orbit pull back leaves the
+  planet hanging in the sky above the Flatirons. An earlier long trailing fade kept
+  three scales faintly stacked; it was pretty, and it broke both ends: coming out of
+  the head you could still see the neuron over the beach, and the atom's specks
+  drifted through what is supposed to be the void around the nucleus. Full strength
+  mid-transition, absent on arrival.
+
+Passages also fade the scene's own labels out from under the banner, via a single
+`--passage` variable on `<body>` driven by the banner's alpha. The one moment the
+sim names are irrelevant is the one moment they were covering the picture.
+
+## The abstract scales
+
+They are not all the same kind of emptiness, so each names its own contents in
+`ABSTRACT` (`route-app.js`) rather than sharing one generic rings-and-glow scene:
+
+| Landmark | What it is |
+|---|---|
+| The Core | **Void and one object.** No rings, no specks, no glow, no star field — the nucleus is a packed cluster of nucleons and nothing else is in the frame. |
+| The Shell | Rings and particles: the generic abstract treatment. |
+| The Assembly | **Several molecules**, each a few spheres joined by bonds, at varying sizes. This is the band where things stop being single particles and start being structures. |
+| Neural Tissue | **Cells.** A soma with dendrites fanning off it and one long axon, six of them at varying sizes. The centre one is what lands on the character's temple during the passage. |
+| The Atmosphere | Thin air. The ground is gone, the limb glows below, nothing else — and **zero sims, on purpose**. See below. |
+| Orbit | The planet, and every planet-scale sim. |
+| Deep Space | Rings and particles again, with a full star field. |
+
+## Sprites
+
+Two PhET families, registered differently on their own canvases, so each carries its
+own numbers in `CHAR_KIND` (measured with `getBBox`, not guessed):
+
+- **skater** (`energy skatepark/`, PNG) fills its 180x242 canvas edge to edge.
+- **kicker** (`soccer common/`, SVG) stands in the *left half* of a 235x322 board
+  with air above the head — `cx` is 0.271, nowhere near centre.
+
+`character()` normalises both to a requested height so a person is a person
+whichever family they came from. There are people at the beach, through the city,
+in the lab corridor and at the Flatirons trailhead; the stick figure is gone
+entirely, along with its CSS. **`headY()` is the single source of truth for where
+a head is**, used by both the camera's nest anchor and the scene that draws the
+sprite; they were written out separately once and silently drifted, which put a
+`NaN` through every scene transform. There is now a finite-check on the keyframes
+at boot so that failure is loud instead of a blank world.
+
+### The Atmosphere holds zero sims
+
+Deliberately, and it is *not* the mistake the Foothills was. The Foothills was an
+empty stop on a flat walk, so it read as a stall. The Atmosphere is the top of a
+vertical launch: the emptiness is the content — you have just left the ground and
+there is nothing up here yet. It is a beat inside a two-part move (launch, then
+reveal), which is also why the pull back to orbit is deliberately short. The
+Greenhouse Effect moved up to Orbit to sit with the other planet-scale sims.
+
+If it ever starts feeling like a stall, the fix is to shorten the climb or fold it
+into the passage — not to park a sim there.
 
 ## Two axes
 
@@ -197,6 +264,8 @@ Edit `route.json` and re-run `validate.js` rather than hard-coding positions in 
 - **The sprites and the grey-box are at different fidelities now.** Real characters
   against flat geometry looks unfinished, which is honest for this stage but means
   tonal judgements made now (the ground tints, mostly) will need redoing at Stage 4.
+  The Flatirons hiker is still a stick figure on purpose — a skateboarder at a
+  trailhead read wrong, and neither folder has a hiking pose.
 - **Some sims belong to more than one place.** `friction` shows literal atoms; 
   `energy-forms-and-changes` spans four scales; `wave-interference` is both classical and 
   quantum. Plan for ghost nodes — translucent repeats at the secondary location — so the 

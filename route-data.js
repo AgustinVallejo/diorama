@@ -71,8 +71,8 @@ window.ROUTE_DATA = {
     { "id": "lab-corridor","order": 9,  "scale": "human", "label": "The Lab",         "art": "illustrated", "zones": ["gases", "solutions", "spectrometry", "wave-bench"], "note": "Doors on both sides, one topic per room. Every instrument aims DOWN a scale — this is where the vertical axis becomes something you operate rather than travel." },
     { "id": "flatirons",   "order": 10, "scale": "human", "label": "The Flatirons",   "art": "illustrated", "note": "Dusk. Trailhead at the base of the slabs, foothills behind it. Last ground before the ascent — the sims sit low and the rock does the breathing. Boulder easter egg." },
 
-    { "id": "atmosphere",  "order": 11, "scale": "planetary", "label": "The Atmosphere", "art": "abstract" },
-    { "id": "orbit",       "order": 12, "scale": "cosmic",    "label": "Orbit",          "art": "abstract" },
+    { "id": "atmosphere",  "order": 11, "scale": "planetary", "label": "The Atmosphere", "art": "abstract", "move": "climb", "note": "Reached by going straight up off the Flatirons - a pure vertical launch, no zoom. Holds zero sims on purpose: the ground is gone and there is nothing here but thin air. It is the top of the launch, not a destination - which is why the pull back to the planet is a short one." },
+    { "id": "orbit",       "order": 12, "scale": "cosmic",    "label": "Orbit",          "art": "abstract", "zoom": 1.2, "note": "The reveal. A short pull back from the top of the launch - a full zoom step here made the planet feel like a retreat rather than an arrival. Holds the planet-scale sims." },
     { "id": "deep-space",  "order": 13, "scale": "cosmic",    "label": "Deep Space",     "art": "abstract", "note": "Terminus." }
   ],
 
@@ -172,7 +172,7 @@ window.ROUTE_DATA = {
     { "slug": "eating-exercise-and-energy", "name": "Eating, Exercise and Energy", "landmark": "flatirons", "order": 2, "topic": "life", "also": ["mechanics"], "note": "A hiker starting up the trail." },
     { "slug": "natural-selection", "name": "Natural Selection", "landmark": "flatirons", "order": 3, "topic": "life", "also": ["chance"], "idleMotion": true, "note": "Rabbits in the scrub at the base." },
 
-    { "slug": "greenhouse-effect", "name": "The Greenhouse Effect", "landmark": "atmosphere", "order": 1, "topic": "waves-light", "also": ["life"], "note": "Visible in the sky from every surface landmark. Pairs downward with molecules-and-light." },
+    { "slug": "greenhouse-effect", "name": "The Greenhouse Effect", "landmark": "orbit", "order": 4, "topic": "waves-light", "also": ["life"], "note": "Sits with the other planet-scale sims. Visible in the sky from every surface landmark; pairs downward with molecules-and-light." },
 
     { "slug": "gravity-and-orbits", "name": "Gravity and Orbits", "landmark": "orbit", "order": 1, "topic": "gravity", "also": [], "idleMotion": true },
     { "slug": "keplers-laws", "name": "Kepler's Laws", "landmark": "orbit", "order": 2, "topic": "gravity", "also": [] },

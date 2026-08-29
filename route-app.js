@@ -23,20 +23,62 @@
      out of the neuron lands you looking at the character who was carrying it. */
   var NEST = {};                       // beach fills this in once it places its character
 
-  var CHAR_BASE = 'energy skatepark/';
-  var CHAR_W = 180, CHAR_H = 242;      // the sprite sheet's own pixel size
-  var CHAR_HEAD = { x: 0.49, y: 0.23 };// head centre as a fraction of the sprite
-  var SKATERS = [];
-  [['africa', [1, 2, 3, 4, 5, 6]], ['asia', [1, 2, 3, 4, 5, 6]],
-   ['latinAmerica', [1, 2, 3, 4, 5, 6]], ['oceania', [1, 2, 3, 4, 6]],
-   ['usa', [1, 2, 3, 4, 5, 6]], ['africaModest', [6]]].forEach(function (r) {
-    r[1].forEach(function (n) { SKATERS.push(r[0] + '/' + r[0] + 'Skater' + n); });
+  /* Two sprite families, registered differently on their own canvases, so each
+     needs its own numbers. Measured with getBBox in the browser:
+
+       aspect - canvas w/h
+       cx     - horizontal centre of the figure, as a fraction of canvas width
+       feet   - where the soles land, as a fraction of canvas height
+       body   - fraction of canvas height the figure occupies, so a requested
+                height means the same thing for both families
+       head   - head centre, as a fraction of canvas height
+
+     Skaters fill their canvas edge to edge. Kickers stand in the left half of a
+     235x322 board with air above the head, which is why cx is nowhere near .5. */
+  var CHAR_KIND = {
+    skater: {
+      dir: 'energy skatepark/', ext: '.png',
+      aspect: 180 / 242, cx: 0.50, feet: 1.00, body: 1.00, head: 0.23,
+      poses: ['Left', 'Right'],
+      regions: [['africa', [1, 2, 3, 4, 5, 6]], ['asia', [1, 2, 3, 4, 5, 6]],
+                ['latinAmerica', [1, 2, 3, 4, 5, 6]], ['oceania', [1, 2, 3, 4, 6]],
+                ['usa', [1, 2, 3, 4, 5, 6]], ['africaModest', [6]]],
+      name: function (region, n) { return region + 'Skater' + n; }
+    },
+    kicker: {
+      dir: 'soccer common/', ext: '.svg',
+      aspect: 235 / 322, cx: 0.271, feet: 0.958, body: 0.851, head: 0.18,
+      poses: ['Standing', 'Standing', 'PoisedToKick'],
+      regions: [['africa', [1, 2, 3, 4, 7, 11, 13, 14, 15]],
+                ['africaModest', [1, 2, 3, 5, 7, 11, 13]],
+                ['asia', [1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15]],
+                ['latinAmerica', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]],
+                ['oceania', [1, 2, 6, 8, 11, 14]],
+                ['usa', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]]],
+      name: function (region, n) { return region + 'Kicker' + (n < 10 ? '0' + n : n); }
+    }
+  };
+  var CAST = [];                           // both families in one list
+  Object.keys(CHAR_KIND).forEach(function (k) {
+    CHAR_KIND[k].regions.forEach(function (r) {
+      r[1].forEach(function (n) {
+        CAST.push({ kind: k, path: r[0] + '/' + CHAR_KIND[k].name(r[0], n) });
+      });
+    });
   });
+
+  /* Where a sprite's head lands, given where its feet are and how tall it stands.
+     The camera anchor and the beach scene must agree on this to the pixel, so it
+     lives in one place rather than being written out twice. */
+  function headY(kind, groundY, h) {
+    var K = CHAR_KIND[kind], hc = h / K.body;
+    return groundY - K.feet * hc + K.head * hc;
+  }
 
   /* The one character the route is about. Declared up here because the camera
      keyframes need the head position before any scene is built. */
-  var HERO = { x: 430, ground: GROUND_Y + 46, h: 156 };
-  NEST.beach = { x: HERO.x, y: HERO.ground - HERO.h * (1 - CHAR_HEAD.y) };
+  var HERO = { kind: 'skater', x: 430, ground: GROUND_Y + 46, h: 156 };
+  NEST.beach = { x: HERO.x, y: headY(HERO.kind, HERO.ground, HERO.h) };
 
   var TOPIC_COLOR = {
     matter: '#c084fc',
@@ -50,7 +92,7 @@
 
   // sky: [zenith, horizon] per landmark, interpolated along the route
   var SKY = {
-    'nucleus-core':       ['#2a0b3d', '#08040f'],
+    'nucleus-core':       ['#050409', '#010103'],   // void. nothing in it but the nucleus
     'electron-shell':     ['#101f4d', '#05060f'],
     'molecular-assembly': ['#0b3038', '#04141a'],
     'neural-tissue':      ['#3a0f33', '#0d0410'],
@@ -61,7 +103,7 @@
     'lab-corridor':       ['#9fb0c0', '#e0d8c6'],
     'flatirons':          ['#43356a', '#ec9a58'],   // dusk: violet zenith, burning horizon
     'atmosphere':         ['#0c1330', '#3d5486'],   // the limb of the planet, seen from above
-    'orbit':              ['#04060f', '#0e1836'],
+    'orbit':              ['#02030a', '#04060e'],   // space, so the planet disc reads
     'deep-space':         ['#000000', '#04050c']
   };
 
@@ -70,8 +112,8 @@
      and you get the day: sun climbing from the left across the ground band,
      setting behind the Flatirons, gone by orbit. */
   var LIGHT = {
-    'nucleus-core':       { x: 50, y: 42, r: 40,  c: '#ffffff', a: 0,   star: .55 },
-    'electron-shell':     { x: 50, y: 42, r: 40,  c: '#ffffff', a: 0,   star: .46 },
+    'nucleus-core':       { x: 50, y: 42, r: 40,  c: '#ffffff', a: 0,   star: 0 },
+    'electron-shell':     { x: 50, y: 42, r: 40,  c: '#ffffff', a: 0,   star: .22 },
     'molecular-assembly': { x: 50, y: 42, r: 40,  c: '#ffffff', a: 0,   star: .30 },
     'neural-tissue':      { x: 50, y: 42, r: 40,  c: '#ffffff', a: 0,   star: .14 },
     'beach':              { x: 24, y: 17, r: 62,  c: '#fff7de', a: .95, star: 0 },
@@ -80,10 +122,24 @@
     'city':               { x: 65, y: 21, r: 64,  c: '#ffeec6', a: .78, star: 0 },
     'lab-corridor':       { x: 77, y: 31, r: 70,  c: '#ffe4b6', a: .32, star: 0 },
     'flatirons':          { x: 88, y: 66, r: 116, c: '#ff9a4e', a: .95, star: .22 },
-    'atmosphere':         { x: 97, y: 86, r: 94,  c: '#ff6a3d', a: .70, star: .74 },
+    'atmosphere':         { x: 92, y: 92, r: 120, c: '#ff7a44', a: .60, star: .80 },
     'orbit':              { x: 106, y: 94, r: 58, c: '#fff2d8', a: .50, star: 1 },
     'deep-space':         { x: 112, y: 98, r: 24, c: '#ffffff', a: .16, star: 1 }
   };
+
+  /* The abstract scales are not all the same kind of emptiness. The nucleus is a
+     void with one object in it; the molecule band is a crowd of little assemblies;
+     the atmosphere is sky with the ground gone; orbit is where the planet shows up. */
+  var ABSTRACT = {
+    'nucleus-core':       { core: 'nucleus' },
+    'electron-shell':     { rings: 4, specks: 24, glow: true, core: 'plain' },
+    'molecular-assembly': { glow: true, core: 'molecules' },
+    'neural-tissue':      { specks: 14, glow: true, core: 'neurons' },
+    'atmosphere':         { core: 'none', thinAir: true },
+    'orbit':              { core: 'none', planet: true },
+    'deep-space':         { rings: 3, specks: 26, glow: true, core: 'plain' }
+  };
+  var ABSTRACT_DEFAULT = { rings: 4, specks: 24, glow: true, core: 'plain' };
 
   // where a landmark's sim slots hang, and how wide the rows run
   var SLOT = {
@@ -130,7 +186,7 @@
   }
 
   // ------------------------------------------------------------------- state
-  var R, stops, exps, W, scenes = [], scaleById = {}, sectionOf = {}, passages = [];
+  var R, stops, exps, zis, W, scenes = [], scaleById = {}, sectionOf = {}, passages = [];
   var simCount = {};
   var progress = 0, targetP = 0, vel = 0, lastT = 0, snapTimer = null, settled = false;
   var world, viewport, fit = 1;
@@ -155,13 +211,25 @@
                  rising off it, not by backing away from it.
          nest  - the next scene is pinned to a point inside this one (the beach,
                  pinned to the neuron, which is why the head works). */
-    exps = []; W = [];
+    exps = []; W = []; zis = [];
     stops.forEach(function (lm, i) {
-      if (i === 0) { exps[0] = 0; W[0] = { x: 0, y: 0 }; return; }
+      if (i === 0) { exps[0] = 0; zis[0] = 0; W[0] = { x: 0, y: 0 }; return; }
       var prev = stops[i - 1];
-      var pan = prev.scale === 'human' && lm.scale === 'human';
-      var climb = sectionOf[lm.id] && sectionOf[lm.id].id === 'ascent';
-      exps[i] = pan ? exps[i - 1] : exps[i - 1] + ZOOM_STEP;
+      /* A landmark may name its own move in the manifest; otherwise pan inside
+         the human band and zoom everywhere else. Only the atmosphere names one,
+         and it names "climb": leaving the Flatirons is a pure vertical launch
+         with no zoom at all, so the rock drops out of frame and you are left in
+         empty sky. The reveal is the NEXT move — orbit zooms out, and the thing
+         you climbed off turns out to be a planet. */
+      var move = lm.move || (prev.scale === 'human' && lm.scale === 'human' ? 'pan' : 'zoom');
+      var pan = move === 'pan', climb = move === 'climb';
+      /* A zoom edge may be shorter or longer than the default: orbit sets 1.2,
+         because a full step out of the atmosphere made the planet feel like a
+         retreat rather than an arrival. zis counts zoom EDGES, not octaves, so
+         changing the magnitude of one edge does not change how neighbouring
+         scenes fade — see the loop. */
+      exps[i] = (pan || climb) ? exps[i - 1] : exps[i - 1] + (lm.zoom || ZOOM_STEP);
+      zis[i] = zis[i - 1] + (pan || climb ? 0 : 1);
       var u = Math.pow(2, exps[i - 1]);      // world units per unit of the lower scene
       W[i] = {
         x: W[i - 1].x + (pan ? PAN_UNIT * u : 0),
@@ -172,6 +240,14 @@
         var v = Math.pow(2, exps[i]);
         W[i].x = W[i - 1].x - (nest.x - SCENE_W / 2) * v;
         W[i].y = W[i - 1].y - (nest.y - SCENE_H / 2) * v;
+      }
+    });
+
+    W.forEach(function (w, i) {
+      if (!isFinite(w.x) || !isFinite(w.y) || !isFinite(exps[i])) {
+        throw new Error('camera keyframe ' + i + ' (' + stops[i].id + ') is not finite: ' +
+          JSON.stringify({ x: w.x, y: w.y, exp: exps[i] }) +
+          ' — check NEST anchors and the move rules');
       }
     });
 
@@ -330,30 +406,147 @@
     }
   }
 
+  function ball(layer, cls, x, y, d, style) {
+    layer.appendChild(el('div', cls, 'left:' + (x - d / 2).toFixed(1) + 'px;top:' +
+      (y - d / 2).toFixed(1) + 'px;width:' + d.toFixed(1) + 'px;height:' + d.toFixed(1) +
+      'px;' + (style || '')));
+  }
+
+  /* A nucleus is a packed cluster of nucleons, not one smooth ball. Alternating
+     tones stand in for protons and neutrons. */
+  function nucleusCluster(layer, seed, cx, cy) {
+    var n = 13, d = 40;
+    for (var i = 0; i < n; i++) {
+      var a = i * 2.399963;                      // golden angle, so it packs evenly
+      var r = 30 * Math.sqrt(i / n);
+      ball(layer, 'nucleon' + (i % 2 ? ' neutron' : ''),
+        cx + Math.cos(a) * r, cy + Math.sin(a) * r, d,
+        'z-index:' + (10 + Math.round(Math.sin(a) * 10)) + ';');
+    }
+  }
+
+  /* Several small assemblies rather than one object: this is the band where
+     things stop being single particles and start being structures. */
+  function molecules(layer, seed) {
+    var SHAPES = [
+      [[0, 0, 54], [-46, 26, 34], [46, 26, 34]],                    // bent, like water
+      [[0, 0, 50], [-52, 0, 32], [52, 0, 32]],                      // linear
+      [[0, 0, 46], [-40, -30, 30], [40, -30, 30], [0, 48, 30]],     // tetrahedral-ish
+      [[-26, 0, 44], [26, 0, 44]],                                  // diatomic
+      [[0, -28, 42], [-38, 22, 36], [38, 22, 36], [0, 56, 28]]
+    ];
+    var spots = [[600, 350, 1.15], [268, 214, .72], [934, 250, .66],
+                 [352, 508, .62], [880, 512, .78], [604, 128, .5]];
+    spots.forEach(function (sp, i) {
+      var shape = SHAPES[Math.floor(rnd(seed, i) * SHAPES.length) % SHAPES.length];
+      var k = sp[2], rot = (rnd(seed, i + 31) - 0.5) * 60;
+      var g = el('div', 'molecule', 'left:' + sp[0] + 'px;top:' + sp[1] +
+        'px;transform:rotate(' + rot.toFixed(1) + 'deg);opacity:' +
+        (0.5 + k * 0.5).toFixed(2) + ';');
+      // bonds first, so the atoms sit on top of them
+      for (var b = 1; b < shape.length; b++) {
+        line(g, shape[0][0] * k, shape[0][1] * k, shape[b][0] * k, shape[b][1] * k,
+          'height:' + (7 * k).toFixed(1) + 'px;opacity:.5;border-radius:4px;');
+      }
+      shape.forEach(function (at, ai) {
+        ball(g, 'atom' + (ai ? ' atom-b' : ''), at[0] * k, at[1] * k, at[2] * k);
+      });
+      layer.appendChild(g);
+    });
+  }
+
+  function neurite(w, o) {
+    return 'height:' + w.toFixed(1) + 'px;border-radius:' + w.toFixed(1) +
+      'px;background:rgba(186,214,255,.7);opacity:' + o + ';';
+  }
+
+  /* Cells, not a blob. A soma with dendrites fanning off it and one long axon
+     ending in terminals — enough shape that the scale reads as tissue, and the
+     centre one is what ends up at the character's temple during the passage. */
+  function neurons(layer, seed) {
+    var cells = [[600, 350, 1.00], [258, 206, 0.58], [946, 470, 0.66],
+                 [872, 172, 0.46], [316, 536, 0.52], [640, 610, 0.40]];
+    cells.forEach(function (c, i) {
+      var k = c[2], soma = 58 * k;
+      var g = el('div', 'neuron-cell', 'left:' + c[0] + 'px;top:' + c[1] +
+        'px;opacity:' + (0.45 + k * 0.55).toFixed(2) + ';');
+      var nd = 6;
+      for (var d = 0; d < nd; d++) {
+        var a = (d / nd) * Math.PI * 2 + rnd(seed, i * 17 + d) * 0.6;
+        var len = (74 + rnd(seed, i * 17 + d + 40) * 56) * k;
+        var x2 = Math.cos(a) * len, y2 = Math.sin(a) * len;
+        line(g, Math.cos(a) * soma * 0.42, Math.sin(a) * soma * 0.42, x2, y2,
+          neurite(4.4 * k, 0.6));
+        var b = a + (rnd(seed, i * 17 + d + 80) - 0.5) * 1.3;   // one fork at the tip
+        line(g, x2, y2, x2 + Math.cos(b) * len * 0.46, y2 + Math.sin(b) * len * 0.46,
+          neurite(2.6 * k, 0.45));
+      }
+      var aa = rnd(seed, i + 211) * Math.PI * 2;                // the axon
+      var alen = (210 + rnd(seed, i + 307) * 140) * k;
+      var ax = Math.cos(aa) * alen, ay = Math.sin(aa) * alen * 0.7;
+      line(g, 0, 0, ax, ay, neurite(5.2 * k, 0.55));
+      for (var t = 0; t < 3; t++) {                             // terminals
+        var ta = aa + (t - 1) * 0.5;
+        line(g, ax, ay, ax + Math.cos(ta) * 48 * k, ay + Math.sin(ta) * 48 * k,
+          neurite(3 * k, 0.5));
+      }
+      ball(g, 'soma', 0, 0, soma);
+      layer.appendChild(g);
+    });
+  }
+
   function abstractScene(lm, host, groups) {
     var L = depthLayers(host);
-    for (var r = 0; r < 4; r++) {
+    var A = ABSTRACT[lm.id] || ABSTRACT_DEFAULT;
+    var cx = SCENE_W / 2, cy = SCENE_H / 2;
+
+    for (var r = 0; r < (A.rings || 0); r++) {
       var d = 220 + r * 150;
       L.far.appendChild(el('div', 'ring', 'width:' + d + 'px;height:' + d + 'px;left:' +
-        (SCENE_W / 2 - d / 2) + 'px;top:' + (SCENE_H / 2 - d / 2) + 'px;opacity:' +
-        (0.5 - r * 0.09)));
+        (cx - d / 2) + 'px;top:' + (cy - d / 2) + 'px;opacity:' + (0.5 - r * 0.09)));
     }
-    for (var i = 0; i < 26; i++) {
+    for (var i = 0; i < (A.specks || 0); i++) {
       var a = rnd(lm.id, i) * Math.PI * 2, rad = 110 + rnd(lm.id, i + 99) * 370;
       var sz = 3 + rnd(lm.id, i + 7) * 7;
       L.far.appendChild(el('div', 'speck', 'width:' + sz + 'px;height:' + sz + 'px;left:' +
-        (SCENE_W / 2 + Math.cos(a) * rad) + 'px;top:' +
-        (SCENE_H / 2 + Math.sin(a) * rad * 0.55) + 'px;'));
+        (cx + Math.cos(a) * rad) + 'px;top:' + (cy + Math.sin(a) * rad * 0.55) + 'px;'));
     }
-    L.mid.appendChild(el('div', 'glow'));
-    var core = 70 + (lm.order % 3) * 18;
-    L.mid.appendChild(el('div', 'core', 'width:' + core + 'px;height:' + core + 'px;left:' +
-      (SCENE_W / 2 - core / 2) + 'px;top:' + (SCENE_H / 2 - core / 2) + 'px;'));
+    if (A.glow) L.mid.appendChild(el('div', 'glow'));
+
+    if (A.core === 'nucleus') {
+      nucleusCluster(L.mid, lm.id, cx, cy);
+    } else if (A.core === 'molecules') {
+      molecules(L.mid, lm.id);
+    } else if (A.core === 'neurons') {
+      neurons(L.mid, lm.id);
+    } else if (A.core !== 'none') {
+      var core = 70 + (lm.order % 3) * 18;
+      ball(L.mid, 'core', cx, cy, core);
+    }
+
+    // The last of the ground, seen from far above — and then it is gone.
+    if (A.thinAir) {
+      L.far.appendChild(el('div', 'limb-haze', 'left:-1400px;top:' + (SCENE_H - 60) +
+        'px;width:4000px;height:340px;'));
+      for (var t = 0; t < 40; t++) {
+        L.far.appendChild(el('div', 'speck', 'width:2px;height:2px;left:' +
+          (rnd(lm.id + 'air', t) * SCENE_W) + 'px;top:' +
+          (rnd(lm.id + 'airy', t) * SCENE_H) + 'px;opacity:.35;'));
+      }
+    }
+    // The reveal: pull back and the thing you climbed off is a planet.
+    if (A.planet) {
+      L.mid.appendChild(el('div', 'planet', 'left:' + (cx - 520) + 'px;top:' +
+        (cy - 190) + 'px;width:1040px;height:1040px;'));
+      L.mid.appendChild(el('div', 'planet-rim', 'left:' + (cx - 536) + 'px;top:' +
+        (cy - 206) + 'px;width:1072px;height:1072px;'));
+    }
 
     // sim slots on an ellipse
     var n = groups.length;
     groups.forEach(function (g, i) {
-      var ang = -Math.PI / 2 + (i / Math.max(n, 1)) * Math.PI * 2;
+      // offset off top-dead-centre: that band belongs to the plate and the banner
+      var ang = -Math.PI / 2 + 0.55 + (i / Math.max(n, 1)) * Math.PI * 2;
       var b = simBox(g.sim, g.variants);
       b.style.left = (SCENE_W / 2 + Math.cos(ang) * 396 - SLOT_W / 2) + 'px';
       b.style.top = (SCENE_H / 2 + Math.sin(ang) * 245 - SLOT_H / 2) + 'px';
@@ -361,30 +554,23 @@
     });
   }
 
-  /* A PhET skater sprite standing on the ground at x. Deterministic pick, so the
-     crowd is the same every load — a city that reshuffles itself on refresh reads
-     as a bug. Returns the node; the head sits at (x, y - h*(1-CHAR_HEAD.y)). */
+  /* A PhET sprite standing on the ground at x, h units tall, from either family.
+     Deterministic pick — a street that reshuffles itself on every refresh reads as
+     a bug, not as life. opts.kind pins the family. */
   function character(seed, i, x, groundY, h, opts) {
     opts = opts || {};
-    var who = SKATERS[Math.floor(rnd(seed, i) * SKATERS.length) % SKATERS.length];
-    var face = rnd(seed, i + 977) < 0.5 ? 'Left' : 'Right';
-    var w = h * (CHAR_W / CHAR_H);
-    return el('div', 'char', 'left:' + (x - w / 2).toFixed(1) + 'px;top:' + (groundY - h) +
-      'px;width:' + w.toFixed(1) + 'px;height:' + h + 'px;background-image:url("' +
-      encodeURI(CHAR_BASE + who + face + '.png') + '");' + (opts.style || ''));
-  }
-
-  function stickFigure(x, y, cls) {
-    var g = el('div', 'figure' + (cls ? ' ' + cls : ''), 'left:' + x + 'px;top:' + y + 'px;');
-    g.appendChild(el('div', 'f-head'));
-    g.appendChild(el('div', 'f-body'));
-    g.appendChild(el('div', 'f-arm f-arm-a'));
-    g.appendChild(el('div', 'f-arm f-arm-b'));
-    g.appendChild(el('div', 'f-leg f-leg-a'));
-    g.appendChild(el('div', 'f-leg f-leg-b'));
-    g.appendChild(el('div', 'f-frisbee'));
-    if (cls === 'hiking') g.appendChild(el('div', 'f-pole'));
-    return g;
+    var pool = opts.kind
+      ? CAST.filter(function (c) { return c.kind === opts.kind; })
+      : CAST;
+    var who = pool[Math.floor(rnd(seed, i) * pool.length) % pool.length];
+    var K = CHAR_KIND[who.kind];
+    var pose = K.poses[Math.floor(rnd(seed, i + 977) * K.poses.length) % K.poses.length];
+    // scale the whole canvas so the figure inside it comes out h units tall
+    var hc = h / K.body, wc = hc * K.aspect;
+    return el('div', 'char', 'left:' + (x - K.cx * wc).toFixed(1) + 'px;top:' +
+      (groundY - K.feet * hc).toFixed(1) + 'px;width:' + wc.toFixed(1) + 'px;height:' +
+      hc.toFixed(1) + 'px;background-image:url("' +
+      encodeURI(K.dir + who.path + pose + K.ext) + '");' + (opts.style || ''));
   }
 
   // ------------------------------------------------------- surface landmarks
@@ -407,8 +593,8 @@
     m(150, sand, 9, 66, 'solid'); m(300, sand, 9, 66, 'solid'); // pilings
     // The arrival. The neural-tissue scene is pinned to this sprite's head (see
     // NEST.beach), so the 'out of the head' passage is a camera move, not a cut.
-    L.mid.appendChild(character('hero', 0, HERO.x, HERO.ground, HERO.h));
-    var hy = HERO.ground - HERO.h * (1 - CHAR_HEAD.y);
+    L.mid.appendChild(character('hero', 0, HERO.x, HERO.ground, HERO.h, { kind: HERO.kind }));
+    var hy = headY(HERO.kind, HERO.ground, HERO.h);
     m(HERO.x + 96, hy + 30, 34, 10, 'outline', 'border-radius:50%;opacity:.85;');  // frisbee
     m(880, sand - 38, 66, 38, 'solid', 'border-radius:50% 50% 0 0;');  // bucket
     L.mid.appendChild(character('beachfolk', 3, 1010, sand, 104));
@@ -514,6 +700,13 @@
       m(x + 104, GROUND_Y - 56, 8, 3, 'thin', 'opacity:.6;');     // handle
       L.mid.appendChild(el('div', 'zone-tag', 'left:' + x + 'px;top:' + (GROUND_Y + 12) + 'px;', z));
     });
+    /* People in the corridor. No parallax layers in here, so depth comes from
+       size and how far down the floor they stand. */
+    [[236, GROUND_Y + 6, 104], [612, GROUND_Y + 14, 112], [980, GROUND_Y + 4, 100]]
+      .forEach(function (p, k) {
+        L.mid.appendChild(character('labfolk', k, p[0], p[1], p[2], { kind: 'kicker' }));
+      });
+    L.mid.appendChild(character('labfolk', 7, 830, GROUND_Y + 96, 168));
     m(-30, GROUND_Y + 6, SCENE_W + 60, 90, 'thin', 'opacity:.06;');   // floor sheen
     m(-34, GROUND_Y - 560, 58, 640, 'interior', 'opacity:1;');        // jambs frame the corridor
     m(1206, GROUND_Y - 560, 58, 640, 'interior', 'opacity:1;');
@@ -552,7 +745,7 @@
     }
     L.mid.appendChild(el('div', 'shape fire', 'left:178px;top:' + (GROUND_Y + 72) +
       'px;width:38px;height:38px;'));
-    L.mid.appendChild(stickFigure(298, GROUND_Y - 26, 'hiking'));
+    L.mid.appendChild(character('trailhead', 1, 298, GROUND_Y + 40, 116, { kind: 'kicker' }));
     m(830, GROUND_Y + 34, 92, 38, 'scrub'); m(960, GROUND_Y + 46, 68, 30, 'scrub');
     m(866, GROUND_Y + 30, 14, 10, 'solid', 'border-radius:50%;');   // rabbit
     m(880, GROUND_Y + 22, 4, 9, 'thin');                            // ear
@@ -604,7 +797,7 @@
       sc.appendChild(plate);
 
       world.appendChild(sc);
-      scenes.push({ lm: lm, node: sc, exp: exps[i], w: W[i], shown: true });
+      scenes.push({ lm: lm, node: sc, exp: exps[i], zi: zis[i], w: W[i], shown: true });
     });
   }
 
@@ -719,12 +912,14 @@
     });
     if (best) {
       hud.banner.style.opacity = best.alpha;
+      document.body.style.setProperty('--passage', best.alpha.toFixed(3));
       hud.bannerTitle.textContent = 'passage — ' + best.pg.p.label;
       hud.bannerNote.textContent = best.pg.p.note;
       hud.tint.style.opacity = best.alpha * 0.32;
     } else {
       hud.banner.style.opacity = 0;
       hud.tint.style.opacity = 0;
+      document.body.style.setProperty('--passage', '0');
     }
   }
 
@@ -758,6 +953,7 @@
     var f = clamp(progress - lo, 0, 1);
     return {
       E: lerp(exps[lo], exps[hi], f),
+      z: lerp(zis[lo], zis[hi], f),
       x: lerp(W[lo].x, W[hi].x, f),
       y: lerp(W[lo].y, W[hi].y, f)
     };
@@ -782,10 +978,16 @@
       var s = scenes[i];
       var ds = s.exp - cam.E;
       var sc = Math.pow(2, ds);
-      // behind you: long fade, so three scales of history stay faintly stacked.
-      // ahead of you: short fade, or the next scale's rings loom over the whole
-      // frame as a stray dashed circle rather than a hint of what is coming.
-      var a = ds <= 0 ? smooth((ds + 6.2) / 4.2) : smooth((2.7 - ds) / 1.8);
+      /* Measured in zoom EDGES, not octaves. Scenes fade out over the one step
+         that separates them whatever that step's magnitude is, so shortening the
+         atmosphere-to-orbit pull back does not leave the planet hanging in the
+         sky above the Flatirons. Symmetric: the old long trailing fade kept three
+         scales faintly stacked, which was pretty until smaller scales started
+         drawing in front — coming out of the head you could still see the neuron's
+         sphere over the beach, and the atom's specks drifted through what is
+         supposed to be the void around the nucleus. Full strength mid-transition,
+         absent on arrival. */
+      var a = smooth((1.02 - Math.abs(s.zi - cam.z)) / 0.44);
       var wx = s.w.x - cam.x, wy = s.w.y - cam.y;
       var dx = wx * toScreen, dy = wy * toScreen;   // screen offset of this scene
       var local = Math.pow(2, -s.exp);              // world units -> this scene's units

@@ -38,8 +38,15 @@ const scaleIds = new Set(route.scales.map(s => s.id));
 const topicIds = new Set(route.topics.map(t => t.id));
 const placedSet = new Set(placed);
 
+const MOVES = new Set(['pan', 'zoom', 'climb']);
 route.landmarks.forEach(l => {
   if (!scaleIds.has(l.scale)) errors.push(`Landmark "${l.id}" has unknown scale "${l.scale}"`);
+  if (l.move && !MOVES.has(l.move)) {
+    errors.push(`Landmark "${l.id}" has unknown move "${l.move}" (expected pan | zoom | climb)`);
+  }
+  if (l.zoom !== undefined && !(typeof l.zoom === 'number' && l.zoom > 0)) {
+    errors.push(`Landmark "${l.id}" has a non-positive zoom override "${l.zoom}"`);
+  }
 });
 
 route.sims.forEach(s => {
