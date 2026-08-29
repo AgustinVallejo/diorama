@@ -38,7 +38,8 @@
     background: radial-gradient(80% 60% at 50% 50%, rgba(255,235,200,.55), rgba(120,20,60,.5) 70%, rgba(0,0,0,.7)); }
 
   /* ---------------------------------------------------------------- scenes */
-  .scene { position: absolute; left: 0; top: 0; transform-origin: 50% 50%; --lbl: 1; --pxu: 0px; }
+  .scene { position: absolute; left: 0; top: 0; transform-origin: 50% 50%; --lbl: 1;
+           --pxu: 0px; --pyu: 0px; }
   .scene-frame { position: absolute; inset: 0; border: 1px dashed rgba(255,255,255,.10);
                  border-radius: 6px; }
   body.show-grid .scene-frame {
@@ -46,14 +47,16 @@
                       linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
     background-size: 60px 60px; }
 
-  /* Depth layers. --pf is (parallax factor - 1); --pxu is the camera's lateral
+  /* Depth layers. --pf is (parallax factor - 1); --pxu / --pyu are the camera's
      offset expressed in this scene's own units, so pxu * pf lands the layer at
-     pf+1 times the camera travel. far drifts, near overshoots. */
+     pf+1 times the camera travel. far drifts, near overshoots — sideways along
+     the ground band, and vertically as the ascent lifts off the Flatirons. */
   .layer { position: absolute; inset: 0; }
   .layer-far  { --pf: -.74; }
   .layer-mid  { --pf:  0;   }
   .layer-near { --pf:  .42; }
-  .layer { transform: translate3d(calc(var(--pxu) * var(--pf)), 0, 0); }
+  .layer { transform: translate3d(calc(var(--pxu) * var(--pf)),
+                                   calc(var(--pyu) * var(--pf)), 0); }
 
   /* Top-centre: the only edge of a scene the corner HUD never reaches, and it
      labels the half-visible neighbours you can see to either side. */
@@ -122,6 +125,11 @@
   .note-tag { text-transform: none; letter-spacing: .04em; opacity: calc(var(--lbl) * .62); }
   .zone-label { width: 104px; text-align: right; }
 
+  /* PhET skater sprites. Sized in scene units like everything else, so they
+     scale with the camera and parallax with whatever layer they sit in. */
+  .char { position: absolute; background-repeat: no-repeat; background-size: 100% 100%;
+    background-position: center bottom; pointer-events: none; }
+
   /* stick figure */
   .figure { position: absolute; width: 40px; height: 96px; opacity: .9; }
   .f-head { position: absolute; left: 12px; top: 0; width: 16px; height: 16px; border-radius: 50%;
@@ -148,21 +156,26 @@
      they live inside layers that are transformed and opacity-animated every
      frame, which is the worst case for it. If the route ever needs the glass
      look back, put it on the readout chip alone and leave the slots flat. */
-  .slot { position: absolute; padding: 5px 8px 6px; border-radius: 5px;
+  /* Exactly 120x80 — the size of a PhET sim icon. These are placeholders for the
+     real thumbnail, so they hold its footprint and nothing overflows it. */
+  .slot { position: absolute; width: 120px; height: 80px; padding: 6px 7px 5px;
+    border-radius: 5px; overflow: hidden; display: flex; flex-direction: column;
     background: rgba(8,12,20,.76); border: 1px solid rgba(255,255,255,.2);
     border-left-width: 3px; border-left-style: solid; opacity: var(--lbl);
     box-shadow: 0 3px 14px rgba(0,0,0,.4); color: #e8eef6; }
-  .slot-name { font-size: 12px; font-weight: 600; line-height: 1.2; }
-  .slot-meta { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
-  .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .slot-name { font-size: 10.5px; font-weight: 600; line-height: 1.22;
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+  .slot-meta { display: flex; align-items: center; gap: 3px; margin-top: auto; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; flex: none; }
   .dot-sec { width: 4px; height: 4px; opacity: .6; }
-  .idle { font: 9px var(--mono); letter-spacing: .08em; padding: 0 3px; border-radius: 3px;
-    background: rgba(255,255,255,.14); }
-  .slug { font: 9px var(--mono); opacity: .4; overflow: hidden; text-overflow: ellipsis;
+  .idle { font: 8px var(--mono); letter-spacing: .06em; padding: 0 2px; border-radius: 2px;
+    background: rgba(255,255,255,.14); flex: none; }
+  .slug { font: 8px var(--mono); opacity: .4; overflow: hidden; text-overflow: ellipsis;
     white-space: nowrap; }
-  .variant { display: inline-block; margin: 4px 4px 0 0; font: 9px var(--mono);
-    letter-spacing: .06em; padding: 1px 4px; border-radius: 3px;
+  .variant { display: inline-block; margin: 3px 3px 0 0; font: 8px var(--mono);
+    letter-spacing: .04em; padding: 0 3px; border-radius: 2px;
     border: 1px dashed rgba(255,255,255,.42); opacity: .75; }
+  .slot-vars { display: flex; flex-wrap: wrap; }
   /* leader from a slot down to the spot on the ground it belongs to */
   .leader { position: absolute; width: 1px; background: linear-gradient(180deg,
     rgba(255,255,255,.34), rgba(255,255,255,.06)); opacity: calc(var(--lbl) * .7); }

@@ -11,9 +11,32 @@
 
   // ---------------------------------------------------------------- constants
   var SCENE_W = 1200, SCENE_H = 700;   // world units per scene
-  var PAN_UNIT = 1200;                 // world units per lateral stop
+  var PAN_UNIT = 1200;                 // scene units per lateral stop
+  var CLIMB_UNIT = 940;                // scene units per vertical stop (the ascent)
   var ZOOM_STEP = 2.2;                 // log2 units per zoom stop (~4.6x)
   var GROUND_Y = 500;                  // ground line inside a surface scene
+
+  /* Where a scene sits inside the NEXT one out, in that larger scene's own
+     coordinates. Without an entry a scene is simply concentric with its parent.
+     The beach entry is what makes the small scales live inside a person's head:
+     the neural-tissue scene is pinned to the character's skull, so pulling back
+     out of the neuron lands you looking at the character who was carrying it. */
+  var NEST = {};                       // beach fills this in once it places its character
+
+  var CHAR_BASE = 'energy skatepark/';
+  var CHAR_W = 180, CHAR_H = 242;      // the sprite sheet's own pixel size
+  var CHAR_HEAD = { x: 0.49, y: 0.23 };// head centre as a fraction of the sprite
+  var SKATERS = [];
+  [['africa', [1, 2, 3, 4, 5, 6]], ['asia', [1, 2, 3, 4, 5, 6]],
+   ['latinAmerica', [1, 2, 3, 4, 5, 6]], ['oceania', [1, 2, 3, 4, 6]],
+   ['usa', [1, 2, 3, 4, 5, 6]], ['africaModest', [6]]].forEach(function (r) {
+    r[1].forEach(function (n) { SKATERS.push(r[0] + '/' + r[0] + 'Skater' + n); });
+  });
+
+  /* The one character the route is about. Declared up here because the camera
+     keyframes need the head position before any scene is built. */
+  var HERO = { x: 430, ground: GROUND_Y + 46, h: 156 };
+  NEST.beach = { x: HERO.x, y: HERO.ground - HERO.h * (1 - CHAR_HEAD.y) };
 
   var TOPIC_COLOR = {
     matter: '#c084fc',
@@ -64,15 +87,17 @@
 
   // where a landmark's sim slots hang, and how wide the rows run
   var SLOT = {
-    beach:        { perRow: 4, y: GROUND_Y - 196 },
-    lighthouse:   { perRow: 4, y: GROUND_Y - 224 },
-    playground:   { perRow: 5, y: GROUND_Y - 252 },
-    city:         { perRow: 5, y: GROUND_Y - 292 },
+    beach:        { perRow: 4, y: GROUND_Y - 214 },
+    lighthouse:   { perRow: 4, y: GROUND_Y - 240 },
+    playground:   { perRow: 5, y: GROUND_Y - 272 },
+    city:         { perRow: 7, y: GROUND_Y - 300 },
     // the sims sit low at the trailhead so the slabs and the dusk stay clear
-    flatirons:    { perRow: 3, y: GROUND_Y - 54 }
+    flatirons:    { perRow: 3, y: GROUND_Y - 92 }
   };
-  var SLOT_DEFAULT = { perRow: 5, y: GROUND_Y - 232 };
-  var SLOT_W = 152, SLOT_GAP = 11, SLOT_ROW = 76, SLOT_H = 44;
+  var SLOT_DEFAULT = { perRow: 5, y: GROUND_Y - 240 };
+  // 120x80 is the size of a PhET sim icon. These boxes stand in for one, so they
+  // are exactly that size and Stage 2 can drop the thumbnail straight in.
+  var SLOT_W = 120, SLOT_H = 80, SLOT_GAP = 10, SLOT_ROW = 92;
 
   // ------------------------------------------------------------------- utils
   function el(tag, cls, style, text) {
@@ -105,7 +130,7 @@
   }
 
   // ------------------------------------------------------------------- state
-  var R, stops, exps, xs, scenes = [], scaleById = {}, sectionOf = {}, passages = [];
+  var R, stops, exps, W, scenes = [], scaleById = {}, sectionOf = {}, passages = [];
   var simCount = {};
   var progress = 0, targetP = 0, vel = 0, lastT = 0, snapTimer = null, settled = false;
   var world, viewport, fit = 1;
@@ -120,13 +145,34 @@
     });
     R.sims.forEach(function (s) { simCount[s.landmark] = (simCount[s.landmark] || 0) + 1; });
 
-    // camera keyframes: pan inside the human band, zoom everywhere else
-    exps = []; xs = [];
+    /* Camera keyframes in world units — units-at-exponent-zero, so one pair of
+       numbers covers every scale. A scene at exponent E measures 2^E world units
+       per one of its own, and a world displacement d lands on screen at d*2^-camE.
+
+       Three kinds of move between stops:
+         pan   - sideways, inside the human band.
+         climb - straight up, through the ascent. You leave the Flatirons by
+                 rising off it, not by backing away from it.
+         nest  - the next scene is pinned to a point inside this one (the beach,
+                 pinned to the neuron, which is why the head works). */
+    exps = []; W = [];
     stops.forEach(function (lm, i) {
-      if (i === 0) { exps[0] = 0; xs[0] = 0; return; }
-      var pan = stops[i - 1].scale === 'human' && lm.scale === 'human';
+      if (i === 0) { exps[0] = 0; W[0] = { x: 0, y: 0 }; return; }
+      var prev = stops[i - 1];
+      var pan = prev.scale === 'human' && lm.scale === 'human';
+      var climb = sectionOf[lm.id] && sectionOf[lm.id].id === 'ascent';
       exps[i] = pan ? exps[i - 1] : exps[i - 1] + ZOOM_STEP;
-      xs[i] = pan ? xs[i - 1] + 1 : xs[i - 1];
+      var u = Math.pow(2, exps[i - 1]);      // world units per unit of the lower scene
+      W[i] = {
+        x: W[i - 1].x + (pan ? PAN_UNIT * u : 0),
+        y: W[i - 1].y - (climb ? CLIMB_UNIT * u : 0)
+      };
+      var nest = NEST[lm.id];
+      if (nest) {                            // pin so that nest lands exactly on W[i-1]
+        var v = Math.pow(2, exps[i]);
+        W[i].x = W[i - 1].x - (nest.x - SCENE_W / 2) * v;
+        W[i].y = W[i - 1].y - (nest.y - SCENE_H / 2) * v;
+      }
     });
 
     humanFirst = -1;
@@ -174,6 +220,15 @@
     var color = TOPIC_COLOR[sim.topic] || '#94a3b8';
     var box = el('div', 'slot', 'border-left-color:' + color + ';');
     box.appendChild(el('div', 'slot-name', null, sim.name));
+    // variants sit under the name; the meta row is pinned to the bottom edge, so
+    // everything stays inside the 120x80 the real thumbnail will occupy
+    if (variants.length) {
+      var vars = el('div', 'slot-vars');
+      variants.forEach(function (v) {
+        vars.appendChild(el('span', 'variant', null, v.variantKind));
+      });
+      box.appendChild(vars);
+    }
     var meta = el('div', 'slot-meta');
     meta.appendChild(el('span', 'dot', 'background:' + color + ';'));
     (sim.also || []).forEach(function (t) {
@@ -182,9 +237,6 @@
     if (sim.idleMotion) meta.appendChild(el('span', 'idle', null, 'idle'));
     meta.appendChild(el('span', 'slug', null, sim.slug));
     box.appendChild(meta);
-    variants.forEach(function (v) {
-      box.appendChild(el('div', 'variant', null, v.variantKind));
-    });
     return box;
   }
 
@@ -204,7 +256,6 @@
         var b = simBox(g.sim, g.variants);
         b.style.left = x + 'px';
         b.style.top = y + 'px';
-        b.style.width = SLOT_W + 'px';
         host.appendChild(b);
         if (ri === rows.length - 1 && opts.groundY != null) {
           var top = y + SLOT_H, h = opts.groundY - top;
@@ -304,11 +355,23 @@
     groups.forEach(function (g, i) {
       var ang = -Math.PI / 2 + (i / Math.max(n, 1)) * Math.PI * 2;
       var b = simBox(g.sim, g.variants);
-      b.style.width = SLOT_W + 'px';
       b.style.left = (SCENE_W / 2 + Math.cos(ang) * 396 - SLOT_W / 2) + 'px';
-      b.style.top = (SCENE_H / 2 + Math.sin(ang) * 245 - 22) + 'px';
+      b.style.top = (SCENE_H / 2 + Math.sin(ang) * 245 - SLOT_H / 2) + 'px';
       L.near.appendChild(b);
     });
+  }
+
+  /* A PhET skater sprite standing on the ground at x. Deterministic pick, so the
+     crowd is the same every load — a city that reshuffles itself on refresh reads
+     as a bug. Returns the node; the head sits at (x, y - h*(1-CHAR_HEAD.y)). */
+  function character(seed, i, x, groundY, h, opts) {
+    opts = opts || {};
+    var who = SKATERS[Math.floor(rnd(seed, i) * SKATERS.length) % SKATERS.length];
+    var face = rnd(seed, i + 977) < 0.5 ? 'Left' : 'Right';
+    var w = h * (CHAR_W / CHAR_H);
+    return el('div', 'char', 'left:' + (x - w / 2).toFixed(1) + 'px;top:' + (groundY - h) +
+      'px;width:' + w.toFixed(1) + 'px;height:' + h + 'px;background-image:url("' +
+      encodeURI(CHAR_BASE + who + face + '.png') + '");' + (opts.style || ''));
   }
 
   function stickFigure(x, y, cls) {
@@ -337,14 +400,21 @@
     for (var i = 0; i < 5; i++) {
       f(240 + i * 160, sea - 150 - rnd('gull', i) * 90, 9, 2, 'thin', 'opacity:.5;');
     }
-    groundBand(L.mid, sand);
+    groundBand(L.mid, sand,
+      'background:linear-gradient(180deg,rgba(190,176,140,.62),rgba(84,78,62,.8));');
     m(-1400, sand, 4000, 10, 'thin', 'opacity:.22;');            // wet-sand line
     m(120, sand - 12, 220, 12, 'solid');                        // dock deck
     m(150, sand, 9, 66, 'solid'); m(300, sand, 9, 66, 'solid'); // pilings
-    L.mid.appendChild(stickFigure(440, sand - 96));
+    // The arrival. The neural-tissue scene is pinned to this sprite's head (see
+    // NEST.beach), so the 'out of the head' passage is a camera move, not a cut.
+    L.mid.appendChild(character('hero', 0, HERO.x, HERO.ground, HERO.h));
+    var hy = HERO.ground - HERO.h * (1 - CHAR_HEAD.y);
+    m(HERO.x + 96, hy + 30, 34, 10, 'outline', 'border-radius:50%;opacity:.85;');  // frisbee
     m(880, sand - 38, 66, 38, 'solid', 'border-radius:50% 50% 0 0;');  // bucket
+    L.mid.appendChild(character('beachfolk', 3, 1010, sand, 104));
     foreBand(L.near, GROUND_Y + 176, 26, 'dune');
     n(760, GROUND_Y + 150, 130, 8, 'solid', 'border-radius:4px;opacity:.8;');  // towel
+    L.near.appendChild(character('beachfolk', 7, 250, GROUND_Y + 172, 150));
   };
 
   BUILD.lighthouse = function (L, lm) {
@@ -374,7 +444,8 @@
       var w = 90 + rnd('tree', i) * 70, h = 90 + rnd('tree', i + 30) * 80;
       f(-300 + i * 168, GROUND_Y - h, w, h, 'tree far-tone');
     }
-    groundBand(L.mid, GROUND_Y);
+    groundBand(L.mid, GROUND_Y,
+      'background:linear-gradient(180deg,rgba(96,124,84,.6),rgba(26,38,28,.8));');
     m(120, GROUND_Y - 158, 11, 158, 'solid'); m(300, GROUND_Y - 158, 11, 158, 'solid');
     m(120, GROUND_Y - 166, 191, 10, 'solid');
     m(160, GROUND_Y - 156, 3, 88, 'thin'); m(230, GROUND_Y - 156, 3, 88, 'thin');
@@ -392,7 +463,8 @@
     hazeBand(L.far, GROUND_Y);
     var fh = [140, 210, 170, 250, 190, 160, 230, 200, 150, 240, 180];
     for (var i = 0; i < fh.length; i++) f(-260 + i * 152, GROUND_Y - fh[i], 118, fh[i], 'building far-tone');
-    groundBand(L.mid, GROUND_Y);
+    groundBand(L.mid, GROUND_Y,
+      'background:linear-gradient(180deg,rgba(74,78,86,.7),rgba(22,25,30,.85));');
     var hs = [180, 300, 230, 380, 260, 320, 200, 420, 240];
     for (var j = 0; j < hs.length; j++) m(40 + j * 128, GROUND_Y - hs[j], 96, hs[j], 'building');
     m(1150, GROUND_Y - 260, 9, 260, 'solid');
@@ -401,11 +473,23 @@
     L.mid.appendChild(el('div', 'note-tag', 'left:14px;top:' + (GROUND_Y - 452) +
       'px;width:250px;line-height:1.55;',
       'coulombs-law + charges-and-fields: an invisible layer over the whole street, not objects'));
+    // People on the sidewalk. Spread across all three layers so the crowd gains
+    // depth from the parallax rather than sitting on one flat plane.
+    [90, 335, 610, 880, 1120].forEach(function (x, k) {
+      L.mid.appendChild(character('citymid', k, x, GROUND_Y + 4, 92 + rnd('cityh', k) * 22));
+    });
+    [-40, 470, 1240].forEach(function (x, k) {
+      L.far.appendChild(character('cityfar', k, x, GROUND_Y - 2, 58 + rnd('cityfh', k) * 12,
+        { style: 'opacity:.5;' }));
+    });
     foreBand(L.near, GROUND_Y + 150, 0);
     n(-1400, GROUND_Y + 96, 4000, 4, 'thin', 'opacity:.4;');                        // curb
     n(180, GROUND_Y + 104, 200, 44, 'solid', 'border-radius:10px 16px 4px 4px;');  // parked car
     n(760, GROUND_Y + 108, 176, 40, 'solid', 'border-radius:10px 16px 4px 4px;');
     n(1090, GROUND_Y - 120, 8, 300, 'solid', 'opacity:.9;');                       // near lamp post
+    [520, 990].forEach(function (x, k) {
+      L.near.appendChild(character('citynear', k, x, GROUND_Y + 152, 168));
+    });
   };
 
   /* The one interior. Everything lives in the mid layer on purpose: a back wall
@@ -415,19 +499,19 @@
   BUILD['lab-corridor'] = function (L, lm) {
     var m = boxer(L.mid);
     m(-30, -300, SCENE_W + 60, GROUND_Y + 300, 'interior');       // walls + ceiling
-    for (var i = 0; i < 8; i++) m(46 + i * 148, 74, 108, 9, 'thin', 'opacity:.5;');
-    m(-30, 112, SCENE_W + 60, 1, 'thin', 'opacity:.16;');         // ceiling / wall join
+    for (var i = 0; i < 8; i++) m(46 + i * 148, 10, 108, 9, 'thin', 'opacity:.5;');
+    m(-30, 40, SCENE_W + 60, 1, 'thin', 'opacity:.16;');          // ceiling / wall join
     m(-30, GROUND_Y - 170, SCENE_W + 60, 1, 'thin', 'opacity:.12;');  // dado line
     groundBand(L.mid, GROUND_Y,
       'background:linear-gradient(180deg,rgba(60,64,74,.96),rgba(26,29,35,.98));');
     // floor and ceiling running away to a vanishing point mid-frame
     [[-30, SCENE_H + 60, 480, GROUND_Y - 20], [1230, SCENE_H + 60, 720, GROUND_Y - 20],
-     [-30, 120, 480, GROUND_Y - 300], [1230, 120, 720, GROUND_Y - 300]]
+     [-30, 48, 480, GROUND_Y - 300], [1230, 48, 720, GROUND_Y - 300]]
       .forEach(function (p) { line(L.mid, p[0], p[1], p[2], p[3], 'opacity:.22;'); });
     (lm.zones || []).forEach(function (z, zi) {
       var x = 60 + zi * 290;
-      m(x, GROUND_Y - 118, 118, 118, 'door');
-      m(x + 104, GROUND_Y - 66, 8, 3, 'thin', 'opacity:.6;');     // handle
+      m(x, GROUND_Y - 100, 118, 100, 'door');
+      m(x + 104, GROUND_Y - 56, 8, 3, 'thin', 'opacity:.6;');     // handle
       L.mid.appendChild(el('div', 'zone-tag', 'left:' + x + 'px;top:' + (GROUND_Y + 12) + 'px;', z));
     });
     m(-30, GROUND_Y + 6, SCENE_W + 60, 90, 'thin', 'opacity:.06;');   // floor sheen
@@ -493,8 +577,9 @@
       zones.forEach(function (z, zi) {
         var g = groups.filter(function (x) { return x.sim.zone === z; });
         if (!g.length) return;
-        var y = GROUND_Y - 160 - (zones.length - 1 - zi) * SLOT_ROW;
-        L.mid.appendChild(el('div', 'zone-label', 'left:4px;top:' + (y + 14) + 'px;', z));
+        // tighter pitch than the outdoor stops: four zones have to clear the doors
+        var y = GROUND_Y - 190 - (zones.length - 1 - zi) * 88;
+        L.mid.appendChild(el('div', 'zone-label', 'left:4px;top:' + (y + 30) + 'px;', z));
         layoutRows(L.mid, g, { perRow: 6, x: 120, y: y, center: false });
       });
       return;
@@ -519,7 +604,7 @@
       sc.appendChild(plate);
 
       world.appendChild(sc);
-      scenes.push({ lm: lm, node: sc, exp: exps[i], x: xs[i], shown: true });
+      scenes.push({ lm: lm, node: sc, exp: exps[i], w: W[i], shown: true });
     });
   }
 
@@ -671,7 +756,11 @@
     var lo = clamp(Math.floor(progress), 0, stops.length - 1);
     var hi = clamp(lo + 1, 0, stops.length - 1);
     var f = clamp(progress - lo, 0, 1);
-    return { E: lerp(exps[lo], exps[hi], f), X: lerp(xs[lo], xs[hi], f) };
+    return {
+      E: lerp(exps[lo], exps[hi], f),
+      x: lerp(W[lo].x, W[hi].x, f),
+      y: lerp(W[lo].y, W[hi].y, f)
+    };
   }
 
   function frame(t) {
@@ -688,6 +777,7 @@
     settled = !moving;
 
     var cam = camera();
+    var toScreen = Math.pow(2, -cam.E);
     for (var i = 0; i < scenes.length; i++) {
       var s = scenes[i];
       var ds = s.exp - cam.E;
@@ -696,25 +786,34 @@
       // ahead of you: short fade, or the next scale's rings loom over the whole
       // frame as a stray dashed circle rather than a hint of what is coming.
       var a = ds <= 0 ? smooth((ds + 6.2) / 4.2) : smooth((2.7 - ds) / 1.8);
-      var offset = (s.x - cam.X) * PAN_UNIT;     // world units
-      var dx = offset * sc;                      // screen-ish units
-      // lateral neighbours fade instead of popping, so the ground band reads as
-      // continuous without a wall of half-legible boxes from next door
-      if (offset !== 0) a *= smooth((1.16 - Math.abs(offset) / SCENE_W) / 0.34);
+      var wx = s.w.x - cam.x, wy = s.w.y - cam.y;
+      var dx = wx * toScreen, dy = wy * toScreen;   // screen offset of this scene
+      var local = Math.pow(2, -s.exp);              // world units -> this scene's units
+      var offx = wx * local, offy = wy * local;
+      // Neighbours fade instead of popping: sideways along the ground band, and
+      // downward as the ascent leaves them underneath you.
+      var off = Math.max(Math.abs(offx) / SCENE_W, Math.abs(offy) / SCENE_H);
+      if (off > 0.004) a *= smooth((1.16 - off) / 0.34);
       if (a <= 0.008) {
         if (s.shown) { s.node.style.display = 'none'; s.shown = false; }
         continue;
       }
       if (!s.shown) { s.node.style.display = ''; s.shown = true; }
       s.node.style.opacity = a;
-      s.node.style.transform = 'translate(' + dx.toFixed(2) + 'px,0) scale(' + sc.toFixed(5) + ')';
-      s.node.style.setProperty('--pxu', offset.toFixed(2) + 'px');
+      s.node.style.transform = 'translate(' + dx.toFixed(2) + 'px,' + dy.toFixed(2) +
+        'px) scale(' + sc.toFixed(5) + ')';
+      s.node.style.setProperty('--pxu', offx.toFixed(2) + 'px');
+      s.node.style.setProperty('--pyu', offy.toFixed(2) + 'px');
       // Labels die quickly once a scene is oversized. Otherwise the scene you are
       // zooming into throws head-height sim names across the frame — worst during
       // the two passages, which are the moments that need a clear picture.
       var la = clamp(Math.min((sc - 0.3) / 0.35, (1.9 - sc) / 0.7), 0, 1);
       s.node.style.setProperty('--lbl', la.toFixed(3));
-      s.node.style.zIndex = String(1000 - Math.round(Math.abs(ds) * 10));
+      // Smaller scales draw in front of larger ones — they are nested inside them.
+      // This is what lets the neuron glow sit on the character's temple instead of
+      // being hidden behind their head, and it keeps the looming next scale behind
+      // the one you are actually standing in.
+      s.node.style.zIndex = String(1000 - Math.round(ds * 10));
     }
 
     var lo = clamp(Math.floor(progress), 0, stops.length - 1);

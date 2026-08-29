@@ -50,7 +50,12 @@ the Flatirons and climb into orbit. Both are hand-animated, both come late (Stag
 | `route-app.js` | Camera, scene builders, sky/light tables, HUD. One `BUILD.<landmark>` function per surface landmark. |
 | `build-data.js` | `node build-data.js` — regenerates `route-data.js` from `route.json` so the page works over `file://`. **Run it after every manifest edit** or the fallback goes stale. |
 | `route-data.js` | Generated. Don't hand-edit. |
-| `energy skatepark/`, `soccer common/` | PhET art assets copied in. Nothing in the grey-box references them; they're sitting here for Stage 4. |
+| `energy skatepark/` | PhET skater sprites, 180x242 PNGs, consistently registered (head centre at about 49%/23% of the frame). The grey-box uses these for the beach character and the city crowd. |
+| `soccer common/` | PhET kicker sprites, SVG. Unused so far — kept for Stage 4. |
+
+The `_png.ts` / `_svg.ts` sidecar modules that shipped with both asset folders have
+been deleted (311 files). They are PhET's base64 build artefacts and nothing here
+imports them; if you ever need one back, it is regenerable from the image.
 
 Serve it rather than opening the file directly — `.claude/launch.json` has an
 `http-server` config on port 5177. `file://` works via `route-data.js`, but the
@@ -58,6 +63,27 @@ fetch path is the one Stage 2 will use.
 
 Current state: all 143 accounted for. 90 placed (78 primary + 12 variants), 2 off-route
 tools, 51 excluded (40 pure math, 9 dev/test scaffolding, 2 deferred statistics sims).
+
+## The camera
+
+Three moves between stops, all falling out of one set of world coordinates
+(`W[]` in `route-app.js`, in units-at-exponent-zero so one pair of numbers spans
+every scale — a scene at exponent E measures `2^E` world units per one of its own):
+
+- **pan** — sideways, inside the human band.
+- **climb** — straight up, for anything in the `ascent` section. You leave the
+  Flatirons by *rising off it*, not by backing away from it: the rock drops out of
+  frame below while the atmosphere comes down into it. Zoom still happens on the
+  same move, so it reads as a launch rather than a lift.
+- **nest** — a scene pinned to a point inside the next one out, via `NEST`. Only
+  the beach uses it, and it is what makes the first passage work: the neural-tissue
+  scene is pinned to the head of the character standing on the sand, so pulling out
+  of the neuron lands you looking at the person who was carrying it. Change
+  `HERO` and the anchor follows; the camera keyframes read it before any scene is
+  built, which is why `HERO` is declared at the top of the file.
+
+Corollary: **smaller scales draw in front of larger ones** (`zIndex = 1000 - ds*10`).
+They are nested *inside* them. Reverse it and the neuron hides behind the skull.
 
 ## Two axes
 
@@ -115,12 +141,13 @@ Also: set `allow` restrictively or several sims will chirp at once.
   `meta` against 3–4 slugs including a hyphenated one**, then set `urlTemplatesVerified`.
   Everything in Stage 2 assumes them.
 - **1 — Grey-box route.** ← *you are here, and it traverses.* Geometry for landmarks,
-  labeled boxes for sim slots, stick-figure character. Discrete camera stops, eased
+  labeled boxes for sim slots at real sim-icon size. Discrete camera stops, eased
   transitions, arrows / scroll / drag / dot-strip all work. Built on top of that:
-  three parallax depth layers per scene (`--pf` / `--pxu`, see the CSS), a single
-  light source that travels the route so the day arc runs alongside the scale arc
-  (morning at the beach → sunset behind the Flatirons → stars by orbit), and a
-  star field that fades in over the ascent. Remaining: the pacing work below.
+  three parallax depth layers per scene (`--pf` / `--pxu` / `--pyu`, see the CSS), a
+  single light source that travels the route so the day arc runs alongside the scale
+  arc (morning at the beach → sunset behind the Flatirons → stars by orbit), a star
+  field that fades in over the ascent, and real PhET character sprites at the beach
+  and through the city. Remaining: the pacing work below.
 - **2 — Sim launch.** Facade → click → expand → iframe with a parent-DOM top bar → back
   restores exact camera position. Snap camera to scale 1 during expansion.
 - **3 — Topic overlay.** Build **waves-light first** (16 sims across 5 scales — it
@@ -163,6 +190,13 @@ Edit `route.json` and re-run `validate.js` rather than hard-coding positions in 
   has no `backdrop-filter` for this reason, and the readout only rewrites when the
   nearest stop changes. Measure in a real window; a background or non-compositing tab
   throttles `requestAnimationFrame` and will lie to you.
+- **Sim slots are exactly 120x80** — the size of a PhET sim icon, so Stage 2 can drop
+  the real thumbnail straight in. Everything inside is clipped to that box; the name
+  clamps to three lines. If a landmark's rows stop fitting, change its `perRow` in
+  `SLOT`, not the box.
+- **The sprites and the grey-box are at different fidelities now.** Real characters
+  against flat geometry looks unfinished, which is honest for this stage but means
+  tonal judgements made now (the ground tints, mostly) will need redoing at Stage 4.
 - **Some sims belong to more than one place.** `friction` shows literal atoms; 
   `energy-forms-and-changes` spans four scales; `wave-interference` is both classical and 
   quantum. Plan for ghost nodes — translucent repeats at the secondary location — so the 
