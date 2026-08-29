@@ -142,6 +142,32 @@
   /* opaque: the one landmark that is indoors has to hide the sky and the
      half-visible neighbours, or the corridor reads as a street */
   .interior { background: linear-gradient(180deg, rgba(24,28,36,.97), rgba(40,44,53,.97)); }
+  /* Triangles: mountain peaks behind the Flatirons, and the seesaw fulcrum. */
+  .peak { background: linear-gradient(170deg, rgba(126,138,164,.9), rgba(38,44,62,.95));
+    clip-path: polygon(50% 0%, 100% 100%, 0% 100%); }
+  .fulcrum { background: rgba(18,24,34,.85); }
+
+  /* Playground and lab hardware. */
+  .bob { position: absolute; border-radius: 50%; background: rgba(18,24,34,.8);
+    border: 1px solid rgba(255,255,255,.45); }
+  .spring { background: repeating-linear-gradient(-74deg,
+      rgba(255,255,255,.6) 0 2.5px, transparent 2.5px 9px);
+    border-left: 1px solid rgba(255,255,255,.25);
+    border-right: 1px solid rgba(255,255,255,.25); }
+  .bowl { border: 2px solid rgba(255,255,255,.5); border-top: 0;
+    border-radius: 0 0 170px 170px;
+    background: linear-gradient(180deg, transparent 30%, rgba(255,255,255,.07)); }
+  .glass { background: rgba(180,225,255,.10); border: 1px solid rgba(200,235,255,.55);
+    border-top: 0; border-radius: 0 0 4px 4px; }
+  .flask { background: rgba(180,225,255,.10); border: 0;
+    clip-path: polygon(38% 0%, 62% 0%, 100% 100%, 0% 100%);
+    box-shadow: inset 0 0 0 1px rgba(200,235,255,.4); }
+  .fill { background: rgba(120,200,235,.5); border-radius: 0 0 3px 3px; }
+  .wavelet { background:
+      radial-gradient(circle at 25% 0%, transparent 46%, rgba(255,255,255,.5) 47% 50%, transparent 51%),
+      radial-gradient(circle at 75% 100%, transparent 46%, rgba(255,255,255,.5) 47% 50%, transparent 51%);
+    background-size: 50% 100%; background-repeat: repeat-x; }
+
   .rock { background: rgba(22,25,32,.88); border: 1px solid rgba(255,255,255,.34);
     border-radius: 44% 56% 22% 18% / 62% 58% 30% 34%; }
   .scrub { background: rgba(18,26,20,.7); border: 1px solid rgba(255,255,255,.24);
@@ -150,7 +176,7 @@
     background: radial-gradient(circle at 50% 78%, rgba(255,224,150,.95), rgba(255,132,50,.6) 55%, transparent 72%); }
   .beam { position: absolute; width: 0; height: 0; opacity: .45;
     border-top: 90px solid transparent; border-bottom: 90px solid transparent;
-    border-left: 900px solid rgba(255,240,170,.32); }
+    border-right: 900px solid rgba(255,240,170,.32); }
   .field-layer { position: absolute; left: 0; width: 1200px;
     background: repeating-linear-gradient(90deg, rgba(56,189,248,.16) 0 1px, transparent 1px 46px),
                 repeating-linear-gradient(0deg, rgba(56,189,248,.12) 0 1px, transparent 1px 46px); }

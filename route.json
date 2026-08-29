@@ -132,8 +132,8 @@
     { "slug": "energy-skate-park", "name": "Energy Skate Park", "landmark": "playground", "order": 8, "topic": "mechanics", "also": ["gravity"], "note": "The bowl." },
     { "slug": "energy-skate-park-basics", "name": "Energy Skate Park: Basics", "landmark": "playground", "order": 8, "topic": "mechanics", "also": ["gravity"], "variantOf": "energy-skate-park", "variantKind": "basics" },
     { "slug": "projectile-motion", "name": "Projectile Motion", "landmark": "playground", "order": 9, "topic": "mechanics", "also": ["gravity"], "note": "Cannon at the far edge, aimed toward the city." },
-    { "slug": "gravity-force-lab", "name": "Gravity Force Lab", "landmark": "playground", "order": 10, "topic": "gravity", "also": [], "note": "Two heavy spheres someone left there. Start of the gravity topic tour." },
-    { "slug": "gravity-force-lab-basics", "name": "Gravity Force Lab: Basics", "landmark": "playground", "order": 10, "topic": "gravity", "also": [], "variantOf": "gravity-force-lab", "variantKind": "basics" },
+    { "slug": "gravity-force-lab", "name": "Gravity Force Lab", "landmark": "orbit", "order": 5, "topic": "gravity", "also": [], "note": "Two masses and one inverse-square law, out where that law is the only thing left. Sits with the orbital sims it explains; pairs sideways with coulombs-law in the city - same law, different constant." },
+    { "slug": "gravity-force-lab-basics", "name": "Gravity Force Lab: Basics", "landmark": "orbit", "order": 5, "topic": "gravity", "also": [], "variantOf": "gravity-force-lab", "variantKind": "basics" },
 
     { "slug": "balloons-and-static-electricity", "name": "Balloons and Static Electricity", "landmark": "city", "order": 1, "topic": "electromagnetism", "also": [], "note": "A kid's birthday party in a front yard." },
     { "slug": "john-travoltage", "name": "John Travoltage", "landmark": "city", "order": 2, "topic": "electromagnetism", "also": [], "note": "A doorknob." },

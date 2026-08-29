@@ -119,7 +119,7 @@ They are not all the same kind of emptiness, so each names its own contents in
 | The Assembly | **Several molecules**, each a few spheres joined by bonds, at varying sizes. This is the band where things stop being single particles and start being structures. |
 | Neural Tissue | **Cells.** A soma with dendrites fanning off it and one long axon, six of them at varying sizes. The centre one is what lands on the character's temple during the passage. |
 | The Atmosphere | Thin air. The ground is gone, the limb glows below, nothing else — and **zero sims, on purpose**. See below. |
-| Orbit | The planet, and every planet-scale sim. |
+| Orbit | The planet, and every planet-scale sim — including Gravity Force Lab, which moved out of the playground: two masses and one inverse-square law, out where that law is the only thing left. |
 | Deep Space | Rings and particles again, with a full star field. |
 
 ## Sprites
@@ -242,6 +242,19 @@ Edit `route.json` and re-run `validate.js` rather than hard-coding positions in 
 
 ## Known issues to resolve in Stage 1
 
+- **A neighbouring scene fades out completely by one stop.** It used to hold at 44%,
+  which looked like nice continuity and was actually a bug: the far layer lags
+  *toward screen centre*, so at the playground the city's skyline was dragged into
+  frame and sat behind the swings. Each scene paints its own full-bleed ground
+  bands, so the ground still reads as continuous while a neighbour's objects stay
+  in their own scene. If you ever want the neighbour visible again, the fix is to
+  clip scene-specific far geometry, not to raise the fade.
+- **Landmark geometry should be the sims that live there.** The playground carries a
+  seesaw (balancing-act), a spring stand (masses-and-springs, hookes-law), a swing
+  with a second pendulum (pendulum-lab) and a skate bowl (energy-skate-park); the
+  lab has a kitted bench outside each door, one per zone (`labKit`). This is worth
+  keeping up as sims move — a landmark whose props have nothing to do with its sims
+  is just decoration.
 - **The city is overloaded** — 14 primary + 3 variants, against 3 at the Flatirons. Its
   slot rows now stack three high and fill the sky above the skyline. Either split it into
   two adjacent landmarks (residential street: static + circuits / power district:

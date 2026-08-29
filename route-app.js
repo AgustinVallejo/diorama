@@ -612,6 +612,7 @@
     groundBand(L.mid, rock);
     m(150, rock - 300, 58, 300, 'solid');
     m(138, rock - 334, 82, 34, 'solid');
+    // apex at the lamp, spreading out to sea — see .beam, which uses border-right
     L.mid.appendChild(el('div', 'beam', 'left:220px;top:' + (rock - 328) + 'px;'));
     m(0, rock - 12, 96, 12, 'solid', 'opacity:.7;');
     m(300, rock + 26, 300, 9, 'solid', 'opacity:.75;');            // jetty
@@ -632,13 +633,32 @@
     }
     groundBand(L.mid, GROUND_Y,
       'background:linear-gradient(180deg,rgba(96,124,84,.6),rgba(26,38,28,.8));');
-    m(120, GROUND_Y - 158, 11, 158, 'solid'); m(300, GROUND_Y - 158, 11, 158, 'solid');
-    m(120, GROUND_Y - 166, 191, 10, 'solid');
-    m(160, GROUND_Y - 156, 3, 88, 'thin'); m(230, GROUND_Y - 156, 3, 88, 'thin');
-    m(158, GROUND_Y - 70, 9, 4, 'solid'); m(228, GROUND_Y - 70, 9, 4, 'solid');
-    m(880, GROUND_Y - 74, 230, 74, 'outline', 'border-radius:0 0 150px 150px;');  // skate bowl
-    m(620, GROUND_Y - 26, 118, 8, 'solid');                                        // bench
-    m(626, GROUND_Y - 18, 6, 18, 'solid'); m(726, GROUND_Y - 18, 6, 18, 'solid');
+    var g = GROUND_Y;
+
+    // swings — pendulum-lab
+    m(40, g - 158, 11, 158, 'solid'); m(220, g - 158, 11, 158, 'solid');
+    m(40, g - 166, 191, 10, 'solid');
+    m(80, g - 156, 3, 92, 'thin'); m(150, g - 156, 3, 92, 'thin');
+    m(74, g - 66, 16, 5, 'solid'); m(144, g - 66, 16, 5, 'solid');
+    // a second pendulum on the same frame, swung out, with a round bob
+    line(L.mid, 196, g - 156, 172, g - 74, 'height:2px;opacity:.7;');
+    ball(L.mid, 'bob', 172, g - 68, 18);
+
+    // seesaw — balancing-act. One plank pivoting on the fulcrum, not two halves.
+    m(310, g - 30, 40, 30, 'peak fulcrum');
+    m(200, g - 42, 260, 8, 'solid', 'transform:rotate(-11deg);');
+    ball(L.mid, 'bob', 208, g - 26, 24);          // the load sitting on the low end
+
+    // spring stand — masses-and-springs, hookes-law
+    m(660, g - 150, 8, 150, 'solid'); m(800, g - 150, 8, 150, 'solid');
+    m(654, g - 158, 154, 9, 'solid');
+    m(692, g - 149, 22, 54, 'spring'); m(752, g - 149, 22, 76, 'spring');
+    m(686, g - 95, 34, 24, 'solid', 'border-radius:3px;');   // hanging masses
+    m(746, g - 73, 34, 24, 'solid', 'border-radius:3px;');
+
+    // skate bowl — energy-skate-park, with a coping lip either side
+    m(860, g - 100, 300, 100, 'bowl');
+    m(848, g - 106, 30, 7, 'solid'); m(1142, g - 106, 30, 7, 'solid');
     foreBand(L.near, GROUND_Y + 172, 0);
     for (var k = 0; k < 22; k++) n(-340 + k * 92, GROUND_Y + 118, 4, 56, 'thin', 'opacity:.38;');
     n(-1400, GROUND_Y + 112, 4000, 3, 'thin', 'opacity:.34;');                      // fence rail
@@ -678,6 +698,40 @@
     });
   };
 
+  /* Glassware and rigs, one set per lab zone. Small, but it is the difference
+     between a corridor of doors and a corridor of doors that does chemistry. */
+  function labKit(layer, zone, x, y) {
+    var b = boxer(layer);
+    if (zone === 'gases') {                       // a piston cylinder over a burner
+      b(x + 20, y - 54, 34, 54, 'glass');
+      b(x + 22, y - 30, 30, 28, 'fill');          // trapped gas
+      b(x + 17, y - 58, 40, 5, 'solid');          // plunger
+      b(x + 35, y - 76, 4, 20, 'solid');          // plunger rod
+      b(x + 84, y - 16, 22, 16, 'solid');         // burner
+      layer.appendChild(el('div', 'shape fire', 'left:' + (x + 86) + 'px;top:' +
+        (y - 34) + 'px;width:18px;height:20px;'));
+    } else if (zone === 'solutions') {            // flask, beaker, test tubes
+      b(x + 14, y - 46, 38, 46, 'flask');
+      b(x + 22, y - 20, 22, 20, 'fill');
+      b(x + 66, y - 34, 26, 34, 'glass');
+      b(x + 68, y - 16, 22, 14, 'fill');
+      for (var t = 0; t < 3; t++) b(x + 106 + t * 11, y - 30, 7, 30, 'glass');
+      b(x + 102, y - 8, 36, 8, 'solid');          // rack
+    } else if (zone === 'spectrometry') {         // source, slit, detector
+      b(x + 12, y - 30, 26, 30, 'solid');
+      b(x + 66, y - 34, 14, 34, 'glass');         // sample cuvette
+      b(x + 68, y - 22, 10, 22, 'fill');
+      b(x + 112, y - 30, 30, 30, 'solid');
+      b(x + 38, y - 18, 28, 3, 'thin', 'opacity:.75;');   // the beam, crossing both
+      b(x + 80, y - 18, 32, 3, 'thin', 'opacity:.75;');
+    } else {                                      // wave-bench: a driven string
+      b(x + 10, y - 40, 20, 40, 'solid');         // oscillator
+      b(x + 128, y - 34, 14, 34, 'solid');        // far post
+      layer.appendChild(el('div', 'shape wavelet', 'left:' + (x + 30) +
+        'px;top:' + (y - 34) + 'px;width:98px;height:16px;'));
+    }
+  }
+
   /* The one interior. Everything lives in the mid layer on purpose: a back wall
      at a fixed distance does not parallax, and an opaque band wide enough to
      survive far-layer drift would black out the city you just walked out of.
@@ -699,14 +753,21 @@
       m(x, GROUND_Y - 100, 118, 100, 'door');
       m(x + 104, GROUND_Y - 56, 8, 3, 'thin', 'opacity:.6;');     // handle
       L.mid.appendChild(el('div', 'zone-tag', 'left:' + x + 'px;top:' + (GROUND_Y + 12) + 'px;', z));
+      // a bench outside each room, kitted for what happens inside it
+      var bx = x + 132, by = GROUND_Y + 44;
+      m(bx, by, 150, 7, 'solid');                                  // bench top
+      m(bx + 6, by + 7, 6, 30, 'solid'); m(bx + 138, by + 7, 6, 30, 'solid');
+      labKit(L.mid, z, bx, by);
     });
     /* People in the corridor. No parallax layers in here, so depth comes from
        size and how far down the floor they stand. */
-    [[236, GROUND_Y + 6, 104], [612, GROUND_Y + 14, 112], [980, GROUND_Y + 4, 100]]
+    /* In the gaps between the benches — the benches are the point of the room.
+       Depth comes from size and how far down the floor each one stands, so the
+       middle one is nearer rather than there being a fourth body on top of a third. */
+    [[402, GROUND_Y + 6, 104], [700, GROUND_Y + 62, 152], [992, GROUND_Y + 4, 100]]
       .forEach(function (p, k) {
         L.mid.appendChild(character('labfolk', k, p[0], p[1], p[2], { kind: 'kicker' }));
       });
-    L.mid.appendChild(character('labfolk', 7, 830, GROUND_Y + 96, 168));
     m(-30, GROUND_Y + 6, SCENE_W + 60, 90, 'thin', 'opacity:.06;');   // floor sheen
     m(-34, GROUND_Y - 560, 58, 640, 'interior', 'opacity:1;');        // jambs frame the corridor
     m(1206, GROUND_Y - 560, 58, 640, 'interior', 'opacity:1;');
@@ -726,17 +787,15 @@
     f(930, GROUND_Y - 236, 520, 236, 'hill far-tone');
     f(1300, GROUND_Y - 150, 420, 150, 'hill far-tone');
     f(-1400, GROUND_Y - 3, 4000, 3, 'thin', 'opacity:.2;');
+    // the range behind the slabs — drawn first so the foothills sit in front of it
+    f(-340, GROUND_Y - 430, 640, 430, 'peak far-tone', 'opacity:.3;');
+    f(180, GROUND_Y - 620, 780, 620, 'peak far-tone', 'opacity:.34;');
+    f(700, GROUND_Y - 470, 560, 470, 'peak far-tone', 'opacity:.26;');
 
     groundBand(L.mid, GROUND_Y);
     m(120, GROUND_Y - 396, 246, 396, 'slab', 'transform:skewX(-13deg);');
     m(396, GROUND_Y - 468, 272, 468, 'slab', 'transform:skewX(-11deg);');
     m(698, GROUND_Y - 344, 226, 344, 'slab', 'transform:skewX(-15deg);');
-    // the trail crosses the open ground toward the notch, in front of the rock
-    [[190, 74, 190, -7], [330, 52, 200, -6], [490, 32, 190, -5], [630, 16, 170, -4]]
-      .forEach(function (s) {
-        m(s[0], GROUND_Y + s[1], s[2], 0, null,
-          'border-top:2px dashed rgba(255,255,255,.34);transform:rotate(' + s[3] + 'deg);');
-      });
     // trailhead: campfire, hiker, scrub, rabbits — all on the open ground plane
     for (var i = 0; i < 7; i++) {
       var a = (i / 7) * Math.PI * 2;
@@ -750,10 +809,21 @@
     m(866, GROUND_Y + 30, 14, 10, 'solid', 'border-radius:50%;');   // rabbit
     m(880, GROUND_Y + 22, 4, 9, 'thin');                            // ear
     m(982, GROUND_Y + 42, 13, 9, 'solid', 'border-radius:50%;');
+    // more people at the trailhead — it is the last ground, it should feel used
+    // clear of 410..790, which is where the slot row hangs — a head behind a
+    // sim label reads as a glitch rather than as a person
+    L.mid.appendChild(character('trailhead', 4, 906, GROUND_Y + 30, 104, { kind: 'kicker' }));
+    L.mid.appendChild(character('trailhead', 9, 168, GROUND_Y + 74, 96));
 
-    foreBand(L.near, GROUND_Y + 176, 18, 'sage');
+    foreBand(L.near, GROUND_Y + 176, 0);
+    // scrub, not tally marks: the straight ticks read as marks on the ground
+    for (var b = 0; b < 9; b++) {
+      n(-260 + b * 190 + rnd('sage', b) * 60, GROUND_Y + 150 + rnd('sage', b + 20) * 26,
+        44 + rnd('sage', b + 40) * 34, 20 + rnd('sage', b + 60) * 12, 'scrub');
+    }
     n(-210, GROUND_Y + 108, 250, 126, 'rock');                      // the boulder easter egg
     n(1030, GROUND_Y + 122, 210, 104, 'rock');
+    L.near.appendChild(character('trailhead', 12, 470, GROUND_Y + 196, 176));
     n(636, GROUND_Y + 104, 5, 66, 'solid');                         // trail sign
     n(618, GROUND_Y + 98, 62, 14, 'solid', 'border-radius:2px;');
     L.near.appendChild(el('div', 'note-tag', 'left:694px;top:' + (GROUND_Y + 100) + 'px;',
@@ -992,10 +1062,14 @@
       var dx = wx * toScreen, dy = wy * toScreen;   // screen offset of this scene
       var local = Math.pow(2, -s.exp);              // world units -> this scene's units
       var offx = wx * local, offy = wy * local;
-      // Neighbours fade instead of popping: sideways along the ground band, and
-      // downward as the ascent leaves them underneath you.
+      /* Neighbours fade instead of popping: sideways along the ground band, and
+         downward as the ascent leaves them underneath you. Gone by a full step —
+         each scene paints its own full-bleed ground, so the band stays continuous
+         while the neighbour's *objects* stay in their own scene. Held at 44% this
+         put the city's skyline over the playground, because the far layer lags
+         toward screen centre and drags scene-specific geometry with it. */
       var off = Math.max(Math.abs(offx) / SCENE_W, Math.abs(offy) / SCENE_H);
-      if (off > 0.004) a *= smooth((1.16 - off) / 0.34);
+      if (off > 0.004) a *= smooth((1.0 - off) / 0.34);
       if (a <= 0.008) {
         if (s.shown) { s.node.style.display = 'none'; s.shown = false; }
         continue;
