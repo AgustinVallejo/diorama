@@ -54,6 +54,11 @@ route.landmarks.forEach(l => {
   if (l.pace !== undefined && !(typeof l.pace === 'number' && l.pace >= 1)) {
     errors.push(`Landmark "${l.id}" has a pace of "${l.pace}"; expected a number >= 1`);
   }
+  // hold splits an edge into a zoom half and a travel half; 0 or 1 would mean
+  // one of the halves has no time in it, which is just an edge without a hold.
+  if (l.hold !== undefined && !(typeof l.hold === 'number' && l.hold > 0 && l.hold < 1)) {
+    errors.push(`Landmark "${l.id}" has a hold of "${l.hold}"; expected a number strictly between 0 and 1`);
+  }
 });
 
 route.sims.forEach(s => {

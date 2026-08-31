@@ -90,7 +90,15 @@ every scale — a scene at exponent E measures `2^E` world units per one of its 
 
   The **beach** is pinned to the head of the character standing on the sand, so
   pulling out of the neuron lands you looking at the person who was carrying it.
-  Change `HERO` and the anchor follows.
+  Change `HERO` and the anchor follows. That edge's zoom is **5.2**, the longest
+  on the route: because the scene is nested, the ratio between the neural scene's
+  size and the head's is fixed at `SCENE_W / headWidth / 2^zoom` and does not
+  change through the move. At the 2.2 default that ratio is about seven, so the
+  neurons were seven times the size of the head they are supposed to be inside
+  for the whole transition, and the character arrived in the middle of a field of
+  them. At 5.2 it is about one. If the neurons ever need to sit tighter inside the
+  head, that number is the only lever — moving the cells around inside their own
+  scene cannot fix it.
 
   **Orbit** is pinned to the blue planet, so leaving the atmosphere comes *out of a
   world* rather than backing away from a frame: the sky you were standing in shrinks
@@ -106,30 +114,56 @@ every scale — a scene at exponent E measures `2^E` world units per one of its 
   copies of one position, drifting apart in silence.
 
 A landmark can also name a **`pace`**, which stretches the settle time of the edge
-*arriving* at it. Only the beach does, at 2.6. The spring is linear, so settle time
-does not depend on distance and every edge otherwise takes the same time — right for
-almost all of them and wrong for exactly one, because coming out of a person's head
-has to be slower than a zoom between two abstract scales or it reads as one. Stiffness
-scales as 1/pace², damping as 1/pace, so the motion keeps its shape and only its clock
-changes. The edge is named by the landmark you arrive at, which is also how `move` and
-`zoom` are named, so `edgePace()` has to look the other way at a stop boundary when
-you are travelling backwards or leaving the beach would borrow the lighthouse's pace.
-One consequence worth knowing: a long jump that crosses the beach edge crawls through
-it. That is the edge doing its job, not a bug.
+*arriving* at it. The beach is 5.0 and the atmosphere 4.0 — the two edges that are
+the point of the route rather than a way of getting between stops. The spring is
+linear, so settle time does not depend on distance and every edge otherwise takes
+the same time; stiffness scales as 1/pace², damping as 1/pace, so the motion keeps
+its shape and only its clock changes. The edge is named by the landmark you arrive
+at, which is also how `move` and `zoom` are named, so `edgePace()` has to look the
+other way at a stop boundary when you are travelling backwards, or leaving the
+beach would borrow the lighthouse's pace. One consequence worth knowing: a long
+jump that crosses the beach edge crawls through it. That is the edge doing its job,
+not a bug.
+
+A landmark can also name a **`hold`**: the fraction of the edge spent on the zoom
+alone, camera pinned where it already was, before any travel starts. Only the beach
+does, at 0.62.
+
+Most edges are one move — zoom and travel together, and it reads as one gesture. A
+**nested** edge is two, and running them together ruins it. Coming out of the head,
+the camera has to end up looking at the middle of a beach, which is off to one side
+of the character; do that while zooming and the neuron field slides into a corner
+while it shrinks, so the one thing the whole passage exists to show — that the small
+scales were inside a person — never lands in front of you. With a hold: zoom out of
+the neurons with the head dead centre, and *then*, scale settled, pan off the head
+into the beach. Each half is eased on its own so the handover is a pause rather than
+a corner, and the scene fade tracks the zoom half rather than the clock, so the
+neurons are gone before the pan starts.
+
+Orbit is nested too and does not have a hold yet. It is the obvious next candidate
+if that move ever reads the same way.
 
 A landmark can name its own move in `route.json` (`"move": "pan" | "zoom" | "climb"`,
 validated). Only the atmosphere does; everything else falls out of the default rule
 — pan inside the human band, zoom elsewhere. A zoom edge can also set its own
-magnitude (`"zoom": 1.2` on orbit, default `ZOOM_STEP` 2.2): a full step out of the
-atmosphere made the planet feel like a retreat rather than an arrival.
+magnitude (default `ZOOM_STEP` 2.2; the beach sets 5.2 and Orbit 3.0, both for
+reasons written up where those landmarks are described).
 
 Two corollaries, both load-bearing:
 
 - **Smaller scales draw in front of larger ones** (`zIndex = 1000 - ds*10`). They are
   nested *inside* them. Reverse it and the neuron hides behind the skull.
 - **A neighbouring scale is gone by one stop, in both directions.** The fade is
-  measured in zoom *edges* (`zis`, incremented once per zoom transition), not in
-  octaves — so changing one edge's magnitude does not change how anything fades.
+  measured in *edges* (`zis`), not in octaves — so changing one edge's magnitude
+  does not change how anything fades. **A zoom counts as an edge and so does a
+  climb; a pan does not.** The climb was excluded at first, on the grounds that it
+  changes no exponent and the offset fade would handle the ground going away. That
+  held while the camera stayed put and stopped holding the moment the pull back to
+  Orbit began sliding sideways: two thirds of the way through it, the whole human
+  band came back on screen at a sixth of its size, city and all, sitting under the
+  planet. Counting the climb puts the band a full edge below the atmosphere and two
+  below Orbit, which is where it belongs — leaving the ground is the one move whose
+  entire point is that the ground goes away.
   Measure it in octaves and shortening the atmosphere-to-orbit pull back leaves the
   planet hanging in the sky above the Flatirons. An earlier long trailing fade kept
   three scales faintly stacked; it was pretty, and it broke both ends: coming out of
@@ -160,6 +194,30 @@ They are not all the same kind of emptiness, so each names its own contents in
 Landmark geometry should be the sims that live there. Beyond that, a few things
 that were got wrong once and are worth not getting wrong again:
 
+- **The sea is a band of small parallel highlights**, longer and brighter towards
+  the shore, with a foam line where it meets the sand. Nothing on this water
+  moves, and one flat band of colour reads as a painted stripe however good the
+  colour is. The waterline is 96 units below the horizon rather than 46, purely
+  to have somewhere to put them; the sand line is `HERO.ground` rather than its
+  own constant, because the two have to be equal and were written out twice.
+- **The rock comes out of a hill that is in the same layer as it is.** Forested
+  mounds are drawn in the mid layer immediately before the slabs, at slab scale,
+  overlapping them, with the slabs' feet buried in them. The range used to live
+  entirely in the far layer, which parallaxes separately and reads as a painted
+  backdrop — the slabs stood *in front of* scenery rather than standing *in* it,
+  and no amount of reshaping them fixed that. The conifers on a mound go along its
+  skyline rather than scattered over its face: the only place a tree is legible
+  against a hill of the same colour is where it breaks the edge.
+- **The Flatirons are four overlapping wedges**, not a picket of separate cones
+  and not the rounded rectangles before that. A flatiron is a slanting triangular
+  face: a short steep drop on the right from the summit and a long straight
+  dip-slope down to the left, which is what the `.slab` clip-path draws
+  (`--a1`/`--a2` place the summit, which is a short edge rather than a point —
+  a single vertex reads as a cone however good the profile below it is). Height
+  is only about 1.1x the base; taller than that and they go pointy. They are
+  drawn right to left so the left-hand ones are nearest and cut across the big
+  one behind, hazed by depth, standing in a green shoulder with pines at the
+  foot. The pines are what give the rock its size.
 - **The lighthouse beam is three wedges, not one.** A CSS border triangle is one
   flat colour the whole way out, which is what made the old beam read as a pale
   shape rather than as light. These are clipped rectangles — a wide soft spill, a
@@ -346,6 +404,17 @@ Frame rate with 78 images in play has **not** been measured in a real window —
 was checked in a hidden preview pane, where `requestAnimationFrame` is frozen and
 any number would have been a lie. Measure it before trusting it.
 
+## The readout
+
+Section, landmark, scale, sim count. **Not the landmark's `note`** — that is
+documentation for whoever is editing the manifest, and on screen it was a
+paragraph of prose sitting over the picture at every single stop. If something in
+a note needs to reach the viewer, it needs to be in the picture.
+
+A landmark holding exactly one sim puts it in the middle of the frame rather than
+out on the slot ring. A lone box on an ellipse reads as the first of a set that
+failed to load.
+
 ## Two axes
 
 **Scale** is the vertical axis and it *is* the route order. **Topic** is not spatial —
@@ -438,6 +507,16 @@ Edit `route.json` and re-run `validate.js` rather than hard-coding positions in 
 
 ## Known issues to resolve in Stage 1
 
+- **The neighbour-offset fade is measured against the viewport, not against the
+  scene's own width.** The two agree for a lateral or vertical neighbour, which
+  sits at the same exponent as the camera, and that is every case the fade was
+  written for. They disagree violently for a nested scene: the neural tissue is
+  inside a head, so in its own units the camera is thousands of widths away while
+  on screen it is a thumbnail near the middle of the frame. Measured the old way
+  it was declared an intruder and killed a fifth of the way into the move, while
+  still four times the size of the head — and the longer the nested edge's zoom,
+  the earlier it died. Do not put this back on scene-relative units to "fix" a
+  nested scene lingering; raise the zoom or fix the fade in edges.
 - **A neighbouring scene fades out completely by one stop.** It used to hold at 44%,
   which looked like nice continuity and was actually a bug: the far layer lags
   *toward screen centre*, so at the playground the city's skyline was dragged into

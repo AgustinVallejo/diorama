@@ -196,10 +196,48 @@
     border-radius: 62% 38% 0 0 / 92% 84% 0 0; }
   .tree { background: rgba(16,24,22,.6); border: 1px solid rgba(255,255,255,.26);
     border-radius: 50% 50% 18% 18%; }
-  .slab { background: linear-gradient(100deg, rgba(44,28,34,.86), rgba(20,14,22,.9));
-    border: 1px solid rgba(255,255,255,.38); border-radius: 6px 34px 0 0; }
+  /* A flatiron is a slanting triangular face: wide where it meets the hillside,
+     coming to a point at the top, with a long dip-slope up the left and a short
+     steep drop on the right. --apex is where that point sits along the top edge.
+     Lit from the right, because the sun is behind and to the right of them by
+     the time the route gets here, and that low warm light on red sandstone is
+     the whole reason anyone photographs these. */
+  /* The profile is the whole thing: a short steep drop on the right from the
+     summit, and a long straight dip-slope running down to the left. --apex is
+     where that summit sits along the top edge, well over to the right. --haze
+     lays distance over the far ones. */
+  .slab { position: absolute;
+    clip-path: polygon(var(--a1) 4%, var(--a2) 0%, 100% 30%, 93% 100%, 0% 100%, 12% 74%);
+    background:
+      linear-gradient(180deg, rgba(150,140,175,var(--haze)), rgba(150,140,175,var(--haze))),
+      linear-gradient(244deg, #e4886a 0 10%, #c9654f 26%, #a04a45 48%,
+        #6d353c 74%, #40232e 100%); }
+  /* bedding planes: the sandstone is layered, and the layers run up the face */
+  .bed { position: absolute; left: 0; right: 0; height: 1px;
+    background: rgba(30,14,20,.34); transform: rotate(-9deg); }
   .water { background: linear-gradient(180deg, rgba(70,130,180,.4), rgba(30,60,96,.5));
     border-top: 1px solid rgba(255,255,255,.4); }
+  /* Nothing on this water moves, so what makes it read as water is a lot of
+     small parallel highlights at different lengths and depths. One flat band of
+     colour reads as a painted stripe however good the colour is. */
+  .swell { border-radius: 2px; background: linear-gradient(90deg,
+      rgba(226,242,255,0), rgba(226,242,255,.9) 30% 70%, rgba(226,242,255,0)); }
+  .foam { background: linear-gradient(180deg, rgba(255,255,255,0),
+      rgba(240,250,255,.55) 60%, rgba(255,255,255,.75)); }
+
+  /* Parasol. The canopy is a half disc cut out of a conic gradient, which is the
+     cheapest way to get the gores of a real one — a plain half circle reads as a
+     mushroom. */
+  .canopy { position: absolute; border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+    background: conic-gradient(from 270deg at 50% 100%,
+      #d9503f 0 22.5deg, #f7efe0 22.5deg 45deg, #d9503f 45deg 67.5deg,
+      #f7efe0 67.5deg 90deg, #d9503f 90deg 112.5deg, #f7efe0 112.5deg 135deg,
+      #d9503f 135deg 157.5deg, #f7efe0 157.5deg 180deg);
+    box-shadow: 0 2px 10px rgba(0,0,0,.3); }
+  .pole { background: linear-gradient(90deg, rgba(232,224,206,.5),
+      rgba(232,224,206,.95), rgba(150,138,116,.6)); border-radius: 2px; }
+  .shade { position: absolute; border-radius: 50%;
+    background: radial-gradient(circle, rgba(30,26,18,.34), rgba(30,26,18,0) 70%); }
   .door { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.36);
     border-radius: 4px 4px 0 0; }
   /* opaque: the one landmark that is indoors has to hide the sky and the
@@ -214,6 +252,12 @@
      reaches the Flatirons. */
   .range { background: linear-gradient(255deg, rgba(158,150,178,.95),
       rgba(92,84,116,.92) 34%, rgba(34,30,52,.95)); }
+  /* A forested shoulder for the rock to come out of. Dark, and lit only along
+     its right shoulder, because the sun is behind and to the right by the time
+     the route is here — a dome lit evenly reads as a bubble. */
+  .mound { border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+    background: radial-gradient(120% 150% at 78% 96%,
+      rgba(96,86,68,.95) 0 22%, rgba(46,54,42,.97) 46%, rgba(22,30,26,.98) 100%); }
   /* Conifers. The trunk notch is what stops them reading as plain triangles at
      small sizes, which is the size most of them are. */
   .conifer { background: linear-gradient(190deg, rgba(46,64,54,.95), rgba(14,24,20,.95));
@@ -374,7 +418,6 @@
   #h-line { display: flex; gap: 10px; align-items: baseline; font: 11px var(--mono);
     color: var(--ink-dim); }
   #h-scale sup { font-size: .7em; }
-  #h-note { margin-top: 8px; font-size: 11.5px; line-height: 1.45; color: var(--ink-dim); }
 
   #ruler { position: absolute; right: 24px; top: 50%; transform: translateY(-50%);
     height: 306px; width: 150px; display: flex; flex-direction: column;
@@ -450,7 +493,6 @@
       <div id="h-section"></div>
       <div id="h-landmark"></div>
       <div id="h-line"><span id="h-scale"></span><span id="h-count"></span></div>
-      <div id="h-note"></div>
     </div>
 
     <div id="ruler"></div>

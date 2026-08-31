@@ -77,7 +77,7 @@
 
   /* The one character the route is about. Declared up here because the camera
      keyframes need the head position before any scene is built. */
-  var HERO = { kind: 'skater', x: 430, ground: GROUND_Y + 46, h: 156 };
+  var HERO = { kind: 'skater', x: 430, ground: GROUND_Y + 96, h: 156 };
   NEST.beach = { x: HERO.x, y: headY(HERO.kind, HERO.ground, HERO.h) };
 
   /* The system at Orbit. Up here with HERO for the same reason: the camera needs
@@ -270,7 +270,16 @@
          changing the magnitude of one edge does not change how neighbouring
          scenes fade — see the loop. */
       exps[i] = (pan || climb) ? exps[i - 1] : exps[i - 1] + (lm.zoom || ZOOM_STEP);
-      zis[i] = zis[i - 1] + (pan || climb ? 0 : 1);
+      /* A climb counts as a fade edge; a pan does not. Leaving the ground is the
+         one move whose whole point is that the ground goes away, and the climb
+         changes no exponent, so without this the entire human band sits at zero
+         fade distance from the atmosphere and only the offset fade holds it back.
+         That was enough while the camera stayed put, and stopped being enough the
+         moment the pull back to Orbit started sliding sideways: two thirds of the
+         way through it the city was back on screen, a sixth of its size, under
+         the planet. Counting the climb puts the whole band a full edge away at
+         the atmosphere and two away at Orbit. */
+      zis[i] = zis[i - 1] + (pan ? 0 : 1);
       var u = Math.pow(2, exps[i - 1]);      // world units per unit of the lower scene
       W[i] = {
         x: W[i - 1].x + (pan ? PAN_UNIT * u : 0),
@@ -529,6 +538,27 @@
       ';clip-path:polygon(' + poly + ');'));
   }
 
+  /* A forested shoulder: a dome of dark timber with conifers standing along its
+     skyline. The trees go on the silhouette, not scattered over the face, because
+     the only place a tree is legible against a mound of the same colour is where
+     it breaks the edge. Sized in the same units as whatever it stands next to —
+     these are meant to be the hill the rock comes out of, not scenery behind it. */
+  function forestMound(layer, seed, x, groundY, w, h, tone) {
+    var b = boxer(layer);
+    b(x, groundY - h, w, h + 6, 'mound', 'opacity:' + tone + ';');
+    var n = Math.round(w / 26);
+    for (var i = 0; i < n; i++) {
+      var u = (i + 0.5) / n;                        // 0..1 across the mound
+      // height of the dome at u, for an ellipse capped at h
+      var dome = h * Math.sqrt(Math.max(0, 1 - Math.pow((u - 0.5) * 2, 2)));
+      var th = (13 + rnd(seed, i) * 17) * (0.6 + tone * 0.5);
+      layer.appendChild(el('div', 'shape conifer', 'left:' +
+        (x + u * w - th * 0.29).toFixed(1) + 'px;top:' +
+        (groundY - dome - th * 0.72).toFixed(1) + 'px;width:' + (th * 0.58).toFixed(1) +
+        'px;height:' + th.toFixed(1) + 'px;opacity:' + (tone * 0.95).toFixed(2) + ';'));
+    }
+  }
+
   function ball(layer, cls, x, y, d, style) {
     layer.appendChild(el('div', cls, 'left:' + (x - d / 2).toFixed(1) + 'px;top:' +
       (y - d / 2).toFixed(1) + 'px;width:' + d.toFixed(1) + 'px;height:' + d.toFixed(1) +
@@ -731,8 +761,17 @@
     // the third out and the only one with a rim light - it is the one you left.
     if (A.system) systemScene(L, lm, cx, cy);
 
-    // sim slots on an ellipse
+    /* Sim slots on a ring — unless there is only one, in which case it goes in
+       the middle of the frame. A lone box out on the ellipse reads as the first
+       of a set that failed to load. */
     var n = groups.length;
+    if (n === 1) {
+      var only = simBox(groups[0].sim, groups[0].variants);
+      only.style.left = (SCENE_W / 2 - SLOT_W / 2) + 'px';
+      only.style.top = (SCENE_H / 2 - SLOT_H / 2) + 'px';
+      L.near.appendChild(only);
+      return;
+    }
     groups.forEach(function (g, i) {
       // offset off top-dead-centre: that band belongs to the plate and the banner
       var ang = -Math.PI / 2 + 0.55 + (i / Math.max(n, 1)) * Math.PI * 2;
@@ -767,9 +806,24 @@
 
   BUILD.beach = function (L, lm) {
     var f = boxer(L.far), m = boxer(L.mid), n = boxer(L.near);
-    var sea = GROUND_Y, sand = GROUND_Y + 46;
+    // the sand line IS where the hero stands; one number, not two
+    var sea = GROUND_Y, sand = HERO.ground;
     hazeBand(L.far, sea);
-    f(-1400, sea, 4000, 50, 'water');
+    f(-1400, sea, 4000, sand - sea + 4, 'water');
+    /* Swell. Water reads as water because of what moves across it, and with
+       nothing moving here the next best thing is a lot of small parallel
+       highlights at slightly different lengths and depths — a flat band with a
+       colour on it reads as a painted stripe. They thin out towards the horizon
+       (the ones nearest the top are shortest and faintest) so the strip has
+       some depth in 46 units. */
+    for (var w = 0; w < 46; w++) {
+      var wt = rnd('swell', w);                      // 0 near horizon, 1 near shore
+      var wy = sea + 5 + wt * (sand - sea - 16);
+      var ww = 50 + wt * 190 + rnd('swellw', w) * 70;
+      f(-900 + rnd('swellx', w) * 2900, wy, ww, 2.5 + wt * 4, 'swell',
+        'opacity:' + (0.22 + wt * 0.55).toFixed(2) + ';');
+    }
+    f(-1400, sand - 13, 4000, 13, 'foam');         // the line the water breaks on
     f(-140, sea - 62, 360, 62, 'hill far-tone');
     f(980, sea - 44, 300, 44, 'hill far-tone');
     for (var i = 0; i < 5; i++) {
@@ -778,19 +832,32 @@
     groundBand(L.mid, sand,
       'background:linear-gradient(180deg,rgba(190,176,140,.62),rgba(84,78,62,.8));');
     m(-1400, sand, 4000, 10, 'thin', 'opacity:.22;');            // wet-sand line
-    m(120, sand - 12, 220, 12, 'solid');                        // dock deck
-    m(150, sand, 9, 66, 'solid'); m(300, sand, 9, 66, 'solid'); // pilings
     // The arrival. The neural-tissue scene is pinned to this sprite's head (see
     // NEST.beach), so the 'out of the head' passage is a camera move, not a cut.
     L.mid.appendChild(character('hero', 0, HERO.x, HERO.ground, HERO.h, { kind: HERO.kind }));
     var hy = headY(HERO.kind, HERO.ground, HERO.h);
     m(HERO.x + 96, hy + 30, 34, 10, 'outline', 'border-radius:50%;opacity:.85;');  // frisbee
-    m(880, sand - 38, 66, 38, 'solid', 'border-radius:50% 50% 0 0;');  // bucket
     L.mid.appendChild(character('beachfolk', 3, 1010, sand, 104));
     foreBand(L.near, GROUND_Y + 176, 26, 'dune');
-    n(760, GROUND_Y + 150, 130, 8, 'solid', 'border-radius:4px;opacity:.8;');  // towel
+    /* A parasol, in the near layer so it is the one thing between you and the
+       sea. It is also the only saturated colour on this beach, which is what
+       makes the rest of it read as sand rather than as grey. */
+    umbrella(L.near, 812, GROUND_Y + 186, 210);
     L.near.appendChild(character('beachfolk', 7, 250, GROUND_Y + 172, 150));
   };
+
+  /* Pole, canopy, and the ellipse of shade it throws. The canopy is a half disc
+     cut out of a conic gradient, which is the cheapest way to get the gores of a
+     real parasol; a plain half circle reads as a mushroom. */
+  function umbrella(layer, x, groundY, h) {
+    var w = h * 1.15, cy = groundY - h;
+    layer.appendChild(el('div', 'shade', 'left:' + (x - w * 0.42) + 'px;top:' +
+      (groundY - 9) + 'px;width:' + (w * 0.84) + 'px;height:18px;'));
+    layer.appendChild(el('div', 'shape pole', 'left:' + (x - 2.5) + 'px;top:' +
+      (cy + 10) + 'px;width:5px;height:' + (h - 10) + 'px;'));
+    layer.appendChild(el('div', 'canopy', 'left:' + (x - w / 2) + 'px;top:' + cy +
+      'px;width:' + w + 'px;height:' + (w * 0.34) + 'px;'));
+  }
 
   BUILD.lighthouse = function (L, lm) {
     var f = boxer(L.far), m = boxer(L.mid), n = boxer(L.near);
@@ -1091,10 +1158,60 @@
         th * 0.62, th, 'conifer far-tone');
     }
 
-    groundBand(L.mid, GROUND_Y);
-    m(120, GROUND_Y - 396, 246, 396, 'slab', 'transform:skewX(-13deg);');
-    m(396, GROUND_Y - 468, 272, 468, 'slab', 'transform:skewX(-11deg);');
-    m(698, GROUND_Y - 344, 226, 344, 'slab', 'transform:skewX(-15deg);');
+    /* A green shoulder under the rock. In the photograph the slabs come out of
+       a meadow, and the default dark band made them look like they were standing
+       on tarmac. Warm because the sun is behind them and low. */
+    groundBand(L.mid, GROUND_Y,
+      'background:linear-gradient(180deg,rgba(112,132,74,.76),rgba(44,50,32,.88));');
+    /* The hill the rock comes out of, in the SAME layer as the slabs and drawn
+       just before them. The range used to live entirely in the far layer, which
+       parallaxes separately and reads as a painted backdrop — the slabs stood in
+       front of scenery instead of standing in it. These are at slab scale, they
+       overlap the slabs, and the slabs' feet are buried in them. */
+    [[-260, 620, 250, 0.62], [180, 780, 360, 0.78], [700, 700, 300, 0.70],
+     [1120, 560, 220, 0.58]].forEach(function (mo, mi) {
+      forestMound(L.mid, 'mound' + mi, mo[0], GROUND_Y + 12, mo[1], mo[2], mo[3]);
+    });
+    /* The slabs. They were rounded rectangles on a skew, which is not what a
+       flatiron is: a flatiron is a slanting triangular face, wide at the bottom
+       where it meets the hillside and coming to a point at the top, with the
+       long dip-slope running up to the left and a short steep drop on the right.
+       Each one is a clipped wedge rather than a box (see .slab). */
+    /* Four of them, overlapping, and wide rather than pointy — height is only
+       about 1.1x the base. Spaced out into a picket of five separate cones they
+       read as a child's mountains, which is the same failure the old range had.
+       Drawn right to left so the left-hand ones are nearest and cut across the
+       big one behind, which is how they stack in the photograph, and hazed by
+       depth so the far ones sit back. */
+    var SLABS = [
+      // x, base width, height, where the apex sits along the top, haze
+      [780, 270, 230, 0.80, 0.34],
+      [540, 390, 320, 0.83, 0.20],
+      [240, 470, 400, 0.85, 0.08],
+      [ 40, 390, 280, 0.80, 0.00]
+    ];
+    SLABS.forEach(function (s, i) {
+      var x = s[0], w = s[1], h = s[2], apex = s[3];
+      var y = GROUND_Y - h + 18;                   // the foot is buried in the slope
+      /* The summit is a short edge, not a point. A single vertex reads as a cone
+         however good the profile below it is, and these are slabs. */
+      var g = el('div', 'shape slab', 'left:' + x + 'px;top:' + y + 'px;width:' + w +
+        'px;height:' + h + 'px;--a1:' + ((apex - 0.07) * 100).toFixed(0) + '%;--a2:' +
+        (apex * 100).toFixed(0) + '%;--haze:' + s[4] + ';');
+      // bedding planes running up the face, the way the sandstone is layered
+      for (var b = 1; b < 4; b++) {
+        g.appendChild(el('div', 'bed', 'top:' + (18 + b * 20 + rnd('bed', i * 7 + b) * 34) + '%;'));
+      }
+      L.mid.appendChild(g);
+    });
+    /* Pines at the foot of the slabs, in front of the rock. This is the whole
+       reason the slabs read as huge: dark conifer shapes at a known size, right
+       where the rock meets the ground. */
+    for (var p = 0; p < 22; p++) {
+      var ph = 40 + rnd('pine', p) * 52;
+      m(-120 + p * 62 + rnd('pine', p + 30) * 30, GROUND_Y - ph + 10,
+        ph * 0.58, ph, 'conifer', 'opacity:.9;');
+    }
     // trailhead: campfire, hiker, scrub, rabbits — all on the open ground plane
     for (var i = 0; i < 7; i++) {
       var a = (i / 7) * Math.PI * 2;
@@ -1208,7 +1325,6 @@
     hud.section = document.getElementById('h-section');
     hud.scale = document.getElementById('h-scale');
     hud.count = document.getElementById('h-count');
-    hud.note = document.getElementById('h-note');
     hud.banner = document.getElementById('banner');
     hud.bannerTitle = document.getElementById('banner-title');
     hud.bannerNote = document.getElementById('banner-note');
@@ -1275,7 +1391,6 @@
         ' · stop ' + (i + 1) + '/' + stops.length;
       var n = simCount[lm.id] || 0;
       hud.count.textContent = n + (n === 1 ? ' sim' : ' sims');
-      hud.note.textContent = lm.note || '';
     }
 
     var lo = clamp(Math.floor(progress), 0, stops.length - 1), hi = clamp(lo + 1, 0, stops.length - 1);
@@ -1347,15 +1462,37 @@
   }
 
   // -------------------------------------------------------------------- loop
+  /* Most edges are one move: zoom and travel together and it reads as one
+     gesture. A nested edge is two, and running them together ruins it. Coming
+     out of the head, the camera has to end up looking at the middle of a beach,
+     which is off to one side of the character — do that while zooming and the
+     neuron field slides into a corner and shrinks, and the one thing the whole
+     passage exists to show, that the small scales were inside a person, never
+     lands in front of you.
+
+     A landmark can name a "hold": the fraction of the edge spent on the zoom
+     alone, with the camera pinned to where it already was, before any travel
+     starts. Zoom out of the neurons with the head dead centre; then, with the
+     scale settled, pan off the head into the beach. Each half is eased on its
+     own so the handover is a pause rather than a corner.
+
+     The fade tracks the zoom half, not the clock, so the neuron scene is gone by
+     the time the pan begins. */
   function camera() {
     var lo = clamp(Math.floor(progress), 0, stops.length - 1);
     var hi = clamp(lo + 1, 0, stops.length - 1);
     var f = clamp(progress - lo, 0, 1);
+    var hold = stops[hi].hold || 0;
+    var fz = f, fp = f;
+    if (hold > 0 && hold < 1) {
+      fz = smooth(f / hold);
+      fp = smooth((f - hold) / (1 - hold));
+    }
     return {
-      E: lerp(exps[lo], exps[hi], f),
-      z: lerp(zis[lo], zis[hi], f),
-      x: lerp(W[lo].x, W[hi].x, f),
-      y: lerp(W[lo].y, W[hi].y, f)
+      E: lerp(exps[lo], exps[hi], fz),
+      z: lerp(zis[lo], zis[hi], fz),
+      x: lerp(W[lo].x, W[hi].x, fp),
+      y: lerp(W[lo].y, W[hi].y, fp)
     };
   }
 
@@ -1418,7 +1555,16 @@
          while the neighbour's *objects* stay in their own scene. Held at 44% this
          put the city's skyline over the playground, because the far layer lags
          toward screen centre and drags scene-specific geometry with it. */
-      var off = Math.max(Math.abs(offx) / SCENE_W, Math.abs(offy) / SCENE_H);
+      /* Measured against the VIEWPORT, not against the scene's own width. The
+         two agree for a lateral or vertical neighbour, which sits at the same
+         exponent as the camera, and that is every case this fade was written
+         for. They disagree violently for a nested scene: the neural tissue is
+         inside a head, so in its own units the camera is thousands of widths
+         away, while on screen it is a thumbnail sitting near the middle of the
+         frame. Measured the old way it was declared an intruder and killed a
+         fifth of the way through the move — while it was still four times the
+         size of the head it is supposed to be inside. */
+      var off = Math.max(Math.abs(dx) / SCENE_W, Math.abs(dy) / SCENE_H);
       if (off > 0.004) a *= smooth((1.0 - off) / 0.34);
       if (a <= 0.008) {
         if (s.shown) { s.node.style.display = 'none'; s.shown = false; }
