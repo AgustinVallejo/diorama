@@ -1,9 +1,9 @@
 'use strict';
-/* PhET Route - Stage 1 grey-box.
+/* PhET Route.
    Discrete camera stops on a line. Zoom between scale bands, lateral pan across
-   the human band. No art: coloured geometry standing in for landmarks and sims.
+   the human band. Landmarks are drawn in CSS; each sim is its own screenshot.
 
-   Two things carry the feeling of depth at this stage, and both are cheap:
+   Two things carry the feeling of depth, and both are cheap:
    per-scene parallax layers (far / mid / near), and a single light source that
    travels with the route — morning at the beach, sunset behind the Flatirons,
    stars by orbit. The day arc and the scale arc run together. */
@@ -80,6 +80,36 @@
   var HERO = { kind: 'skater', x: 430, ground: GROUND_Y + 46, h: 156 };
   NEST.beach = { x: HERO.x, y: headY(HERO.kind, HERO.ground, HERO.h) };
 
+  /* The system at Orbit. Up here with HERO for the same reason: the camera needs
+     the blue planet's position before any scene is built, because the atmosphere
+     is pinned to it. Radii are sized to fit inside the slot ring (SLOT_RX /
+     SLOT_RY) so the sims sit around the picture rather than across it. Body
+     diameters are on no scale at all and could not be — Earth drawn to the scale
+     of its own orbit is a third of a pixel.
+
+       r  orbit radius     d  diameter     a  angle round the ellipse */
+  var SQUASH = 0.42;                          // orbits seen near their own plane
+  var BODIES = [
+    { r: 106, d: 20, cls: 'rocky',  a: 2.35 },
+    { r: 151, d: 30, cls: 'cloudy', a: 0.62 },
+    { r: 206, d: 48, cls: 'home',   a: 3.62 },   // the one you climbed off
+    { r: 254, d: 25, cls: 'rusty',  a: 5.31 },
+    { r: 319, d: 58, cls: 'giant',  a: 1.18 },
+    // low and left: at 4.15 the ringed one sat behind the readout card, which is
+    // the one part of the frame the HUD owns at every stop
+    { r: 380, d: 46, cls: 'ringed', a: 2.55 }
+  ];
+  function bodyAt(b) {
+    return { x: SCENE_W / 2 + Math.cos(b.a) * b.r,
+             y: SCENE_H / 2 + Math.sin(b.a) * b.r * SQUASH };
+  }
+  /* The last move comes out of the planet rather than backing away from a frame.
+     Same mechanism as the beach: the atmosphere is pinned to the blue body, so
+     the sky you were standing in shrinks onto the world it belongs to while the
+     system opens out around it. */
+  var HOME = BODIES.filter(function (b) { return b.cls === 'home'; })[0];
+  NEST.orbit = bodyAt(HOME);
+
   var TOPIC_COLOR = {
     matter: '#c084fc',
     'waves-light': '#fbbf24',
@@ -103,8 +133,7 @@
     'lab-corridor':       ['#9fb0c0', '#e0d8c6'],
     'flatirons':          ['#43356a', '#ec9a58'],   // dusk: violet zenith, burning horizon
     'atmosphere':         ['#0c1330', '#3d5486'],   // the limb of the planet, seen from above
-    'orbit':              ['#02030a', '#04060e'],   // space, so the planet disc reads
-    'deep-space':         ['#000000', '#04050c']
+    'orbit':              ['#02030a', '#04060e']    // space, so the system reads
   };
 
   /* The light source. x/y are viewport percentages, r its radius in px, a its
@@ -123,8 +152,8 @@
     'lab-corridor':       { x: 77, y: 31, r: 70,  c: '#ffe4b6', a: .32, star: 0 },
     'flatirons':          { x: 88, y: 66, r: 116, c: '#ff9a4e', a: .95, star: .22 },
     'atmosphere':         { x: 92, y: 92, r: 120, c: '#ff7a44', a: .60, star: .80 },
-    'orbit':              { x: 106, y: 94, r: 58, c: '#fff2d8', a: .50, star: 1 },
-    'deep-space':         { x: 112, y: 98, r: 24, c: '#ffffff', a: .16, star: 1 }
+    // the scene draws its own sun, so the travelling light source is nearly out
+    'orbit':              { x: 106, y: 94, r: 48, c: '#fff2d8', a: .18, star: 1 }
   };
 
   /* The abstract scales are not all the same kind of emptiness. The nucleus is a
@@ -132,28 +161,40 @@
      the atmosphere is sky with the ground gone; orbit is where the planet shows up. */
   var ABSTRACT = {
     'nucleus-core':       { core: 'nucleus' },
-    'electron-shell':     { rings: 4, specks: 24, glow: true, core: 'plain' },
+    // the same nucleus as the stop below, now small enough to be a detail, with
+    // the shells drawn round it and an electron riding each one
+    'electron-shell':     { rings: 4, glow: true, core: 'atom' },
     'molecular-assembly': { glow: true, core: 'molecules' },
     'neural-tissue':      { specks: 14, glow: true, core: 'neurons' },
     'atmosphere':         { core: 'none', thinAir: true },
-    'orbit':              { core: 'none', planet: true },
-    'deep-space':         { rings: 3, specks: 26, glow: true, core: 'plain' }
+    'orbit':              { core: 'none', system: true }
   };
   var ABSTRACT_DEFAULT = { rings: 4, specks: 24, glow: true, core: 'plain' };
 
   // where a landmark's sim slots hang, and how wide the rows run
   var SLOT = {
-    beach:        { perRow: 4, y: GROUND_Y - 214 },
-    lighthouse:   { perRow: 4, y: GROUND_Y - 240 },
-    playground:   { perRow: 5, y: GROUND_Y - 272 },
-    city:         { perRow: 7, y: GROUND_Y - 300 },
+    beach:        { perRow: 4, y: GROUND_Y - 232 },
+    lighthouse:   { perRow: 4, y: GROUND_Y - 250 },
+    playground:   { perRow: 5, y: GROUND_Y - 286 },
+    // Lower than it was. Two full rows of seven cover the sky from 66 to 1134 and
+    // the HUD owns both edges, so the only clear sky in this scene is the strip
+    // above the rows - which is where the turbine's rotor has to live.
+    city:         { perRow: 7, y: GROUND_Y - 260 },
     // the sims sit low at the trailhead so the slabs and the dusk stay clear
-    flatirons:    { perRow: 3, y: GROUND_Y - 92 }
+    flatirons:    { perRow: 3, y: GROUND_Y - 112 }
   };
-  var SLOT_DEFAULT = { perRow: 5, y: GROUND_Y - 240 };
-  // 120x80 is the size of a PhET sim icon. These boxes stand in for one, so they
-  // are exactly that size and Stage 2 can drop the thumbnail straight in.
-  var SLOT_W = 120, SLOT_H = 80, SLOT_GAP = 10, SLOT_ROW = 92;
+  var SLOT_DEFAULT = { perRow: 5, y: GROUND_Y - 250 };
+  /* The ring an abstract scale hangs its slots on. Wide enough that at Orbit the
+     boxes sit outside the outermost planet's path rather than across it: the
+     inside of the ring is at SLOT_RX - SLOT_W/2 horizontally and SLOT_RY - SLOT_H/2
+     vertically, and the system is sized to fit within that. */
+  var SLOT_RX = 470, SLOT_RY = 272;
+  /* A PhET screenshot is 600x394 and its icon is 128x84; both are 3:2 and change
+     nothing but how much of the picture you can read. 144x96 is 1.2x the icon -
+     enough that a sim is recognisable at a glance without the boxes starting to
+     compete with the landscape they hang over. Every row width below was checked
+     against SCENE_W at this size; if you scale it again, check them again. */
+  var SLOT_W = 144, SLOT_H = 96, SLOT_GAP = 10, SLOT_ROW = 108;
 
   // ------------------------------------------------------------------- utils
   function el(tag, cls, style, text) {
@@ -295,22 +336,24 @@
   /* Where a sim's picture and its playable build live.
 
      A slug in the manifest is a PhET *repository* name, and for most sims that is
-     also the published sim name, so both URLs fall out of the slug alone. Eleven
-     do not, and they carry a "phet" object in route.json: eight legacy Java sims
-     whose project bundles several sims under one folder (nuclear-physics holds
-     three of ours), and three repositories PhET never published a build of.
-     Resolve through here rather than pasting a template — meta holds the same
-     strings, and reality disagrees with them often enough that the manifest, not
-     the code, is where an exception belongs.
+     also the published sim name, so both URLs fall out of the slug alone. Eight do
+     not, and they carry a "phet" object in route.json: legacy Java sims whose
+     project bundles several sims under one folder (nuclear-physics holds three of
+     ours). Resolve through here rather than pasting a template — meta holds the
+     same strings, and reality disagrees with them often enough that the manifest,
+     not the code, is where an exception belongs.
+
+     Every sim on the route has a build. The three repositories PhET never
+     published are excluded in the manifest rather than placed and drawn as empty
+     boxes, so there is no missing-build case to render.
 
      The thumbnail is local (thumbs/, 240x158, a 2x copy of PhET's 600x394
      screenshot) so the route paints with no network at all. The remote 600 is the
-     upgrade path for Stage 2's expanded card, where the picture gets big enough
+     upgrade path for an expanded sim card, where the picture gets big enough
      that 240 would show. */
   var PHET = 'https://phet.colorado.edu/sims/';
   function assets(sim) {
     var p = sim.phet || {};
-    if (p.kind === 'unpublished') return null;
     var legacy = p.kind === 'legacy';
     var project = p.project || sim.slug, name = p.sim || sim.slug;
     return {
@@ -333,23 +376,21 @@
   function simBox(sim, variants) {
     var color = TOPIC_COLOR[sim.topic] || '#94a3b8';
     var a = assets(sim);
-    var box = el('div', 'slot' + (a ? '' : ' slot-bare'), 'border-left-color:' + color + ';');
+    var box = el('div', 'slot', 'border-left-color:' + color + ';');
     box.title = sim.name + '  ·  ' + sim.slug;
 
-    if (a) {
-      var img = el('img', 'slot-thumb');
-      img.src = a.thumb;
-      img.alt = '';
-      /* Not lazy. The whole set is 2.2 MB local and the browser cannot judge
-         visibility here anyway — a distant scene is a transformed, scaled-down
-         layer that never intersects the viewport in the way an intersection test
-         expects, so lazy either loads everything at boot regardless or pops a slot
-         in halfway through a move. Load it up front and be done. */
-      img.decoding = 'async';
-      // a missing local file falls back to the CDN rather than leaving a hole
-      img.onerror = function () { if (img.src !== a.thumbFull) img.src = a.thumbFull; };
-      box.appendChild(img);
-    }
+    var img = el('img', 'slot-thumb');
+    img.src = a.thumb;
+    img.alt = '';
+    /* Not lazy. The whole set is local and the browser cannot judge visibility
+       here anyway — a distant scene is a transformed, scaled-down layer that never
+       intersects the viewport in the way an intersection test expects, so lazy
+       either loads everything at boot regardless or pops a slot in halfway through
+       a move. Load it up front and be done. */
+    img.decoding = 'async';
+    // a missing local file falls back to the CDN rather than leaving a hole
+    img.onerror = function () { if (img.src !== a.thumbFull) img.src = a.thumbFull; };
+    box.appendChild(img);
 
     // corner badges ride above the picture, clear of the caption along the bottom
     if (variants.length) {
@@ -360,7 +401,6 @@
       box.appendChild(vars);
     }
     if (sim.idleMotion) box.appendChild(el('span', 'idle', null, 'idle'));
-    if (!a) box.appendChild(el('span', 'idle nobuild', null, 'no build'));
 
     var cap = el('div', 'slot-cap');
     cap.appendChild(el('span', 'dot', 'background:' + color + ';'));
@@ -462,6 +502,33 @@
     }
   }
 
+  /* A mountain range as one clipped polygon: n peaks at irregular spacing, each
+     with its own height and its own asymmetry, and a saddle dropped between
+     neighbours. Everything comes from rnd(), so the range is the same range on
+     every reload — a skyline that reshuffles reads as a bug, not as terrain. */
+  function ridge(layer, seed, x, groundY, w, h, n, alpha) {
+    var pts = [], i, fx, fh;
+    for (i = 0; i <= n; i++) {
+      // peak: x jittered off its slot, height between .45 and 1 of the budget
+      fx = (i + (rnd(seed, i) - 0.5) * 0.55) / n;
+      fh = 0.45 + rnd(seed, i + 40) * 0.55;
+      if (i > 0) {                                   // saddle before this peak
+        var sx = (i - 0.5 + (rnd(seed, i + 80) - 0.5) * 0.4) / n;
+        var sh = fh * (0.30 + rnd(seed, i + 120) * 0.34);
+        pts.push([sx * 100, (1 - sh) * 100]);
+      }
+      pts.push([clamp(fx, 0, 1) * 100, (1 - fh) * 100]);
+    }
+    pts.unshift([0, 100]);
+    pts.push([100, 100]);
+    var poly = pts.map(function (p) {
+      return p[0].toFixed(2) + '% ' + p[1].toFixed(2) + '%';
+    }).join(',');
+    layer.appendChild(el('div', 'shape range', 'left:' + x + 'px;top:' + (groundY - h) +
+      'px;width:' + w + 'px;height:' + h + 'px;opacity:' + alpha +
+      ';clip-path:polygon(' + poly + ');'));
+  }
+
   function ball(layer, cls, x, y, d, style) {
     layer.appendChild(el('div', cls, 'left:' + (x - d / 2).toFixed(1) + 'px;top:' +
       (y - d / 2).toFixed(1) + 'px;width:' + d.toFixed(1) + 'px;height:' + d.toFixed(1) +
@@ -470,14 +537,42 @@
 
   /* A nucleus is a packed cluster of nucleons, not one smooth ball. Alternating
      tones stand in for protons and neutrons. */
-  function nucleusCluster(layer, seed, cx, cy) {
-    var n = 13, d = 40;
+  function nucleusCluster(layer, seed, cx, cy, k) {
+    k = k || 1;
+    var n = 13, d = 64 * k;
     for (var i = 0; i < n; i++) {
       var a = i * 2.399963;                      // golden angle, so it packs evenly
-      var r = 30 * Math.sqrt(i / n);
+      var r = 48 * k * Math.sqrt(i / n);
       ball(layer, 'nucleon' + (i % 2 ? ' neutron' : ''),
         cx + Math.cos(a) * r, cy + Math.sin(a) * r, d,
         'z-index:' + (10 + Math.round(Math.sin(a) * 10)) + ';');
+    }
+  }
+
+  /* One rung up from the nucleus: the same cluster, small, with the shells drawn
+     round it and electrons sitting ON them rather than scattered. The point of
+     the stop is that the electrons are in orbits, so nothing here is loose - a
+     field of random specks said "particles somewhere" when the picture needed to
+     say "particles bound to a shell". Shells fill outward the way real ones do,
+     2 then 8, capped at four per ring so the frame stays readable.
+
+     k is not a free parameter. It is exactly the scale the stop below renders at
+     from here, so this cluster and that one land on the same pixels: identical
+     object, identical size, identical position, and the crossfade between the two
+     scenes is invisible. Pick k by eye instead and the transition dissolves one
+     nucleus into a different-sized nucleus, which is what it used to do. If the
+     nucleus wants to be bigger here, make it bigger in nucleusCluster - which
+     makes it bigger at the stop below too, because it is the same object. */
+  function atomShells(ringLayer, coreLayer, seed, cx, cy, rings, k) {
+    nucleusCluster(coreLayer, seed, cx, cy, k);
+    var perRing = [2, 4, 4, 3];
+    for (var r = 0; r < rings; r++) {
+      var rad = 110 + r * 75;                    // matches the ring radii below
+      var n = perRing[r] || 3;
+      for (var i = 0; i < n; i++) {
+        var a = (i / n) * Math.PI * 2 + rnd(seed + 'e', r * 8 + i) * 1.4 + r * 0.7;
+        ball(ringLayer, 'electron', cx + Math.cos(a) * rad, cy + Math.sin(a) * rad, 14);
+      }
     }
   }
 
@@ -551,13 +646,50 @@
     });
   }
 
-  function abstractScene(lm, host, groups) {
+  /* Orbit. The sun holds the centre and the planets ride ellipses round it, all
+     of them squashed to 0.42 so the frame reads as a system seen near its plane
+     rather than as a set of concentric circles. Sizes are not to scale and could
+     not be - Earth at the same scale as its orbit is a third of a pixel. */
+  function systemScene(L, lm, cx, cy) {
+    BODIES.forEach(function (b, i) {
+      var rx = b.r, ry = b.r * SQUASH;
+      L.far.appendChild(el('div', 'orbit-path', 'left:' + (cx - rx) + 'px;top:' +
+        (cy - ry) + 'px;width:' + (rx * 2) + 'px;height:' + (ry * 2) + 'px;opacity:' +
+        (0.34 - i * 0.03).toFixed(2) + ';'));
+      var p = bodyAt(b), d = b.d;
+      /* A ring passes behind its planet on the far side and in front on the near
+         side. A single ellipse over the disc reads as a hoop lying on top of a
+         circle, which is what it was; two halves of the same ellipse, one drawn
+         before the ball and one after, put the planet inside its rings. */
+      if (b.cls === 'ringed') {
+        var rw = d * 2.3, rh = d * 0.68;
+        var geom = 'left:' + (p.x - rw / 2).toFixed(1) + 'px;top:' + (p.y - rh / 2).toFixed(1) +
+          'px;width:' + rw.toFixed(1) + 'px;height:' + rh.toFixed(1) + 'px;';
+        L.mid.appendChild(el('div', 'body-ring ring-back', geom));
+        ball(L.mid, 'body ' + b.cls, p.x, p.y, d);
+        L.mid.appendChild(el('div', 'body-ring ring-front', geom));
+      } else {
+        ball(L.mid, 'body ' + b.cls, p.x, p.y, d);
+        // the one you climbed off carries an atmosphere, because it is the thing
+        // the previous stop was inside of
+        if (b.cls === 'home') {
+          L.mid.appendChild(el('div', 'home-air', 'left:' + (p.x - d) + 'px;top:' +
+            (p.y - d) + 'px;width:' + (d * 2) + 'px;height:' + (d * 2) + 'px;'));
+        }
+      }
+    });
+    ball(L.mid, 'sun', cx, cy, 84);
+    L.mid.appendChild(el('div', 'sun-corona', 'left:' + (cx - 86) + 'px;top:' +
+      (cy - 86) + 'px;width:172px;height:172px;'));
+  }
+
+  function abstractScene(lm, host, groups, si) {
     var L = depthLayers(host);
     var A = ABSTRACT[lm.id] || ABSTRACT_DEFAULT;
     var cx = SCENE_W / 2, cy = SCENE_H / 2;
 
     for (var r = 0; r < (A.rings || 0); r++) {
-      var d = 220 + r * 150;
+      var d = 220 + r * 150;                     // radius 110 + r*75, see atomShells
       L.far.appendChild(el('div', 'ring', 'width:' + d + 'px;height:' + d + 'px;left:' +
         (cx - d / 2) + 'px;top:' + (cy - d / 2) + 'px;opacity:' + (0.5 - r * 0.09)));
     }
@@ -571,6 +703,10 @@
 
     if (A.core === 'nucleus') {
       nucleusCluster(L.mid, lm.id, cx, cy);
+    } else if (A.core === 'atom') {
+      // the scale the stop below renders at from here — see atomShells
+      var below = Math.pow(2, exps[si - 1] - exps[si]);
+      atomShells(L.far, L.mid, lm.id, cx, cy, A.rings || 0, below);
     } else if (A.core === 'molecules') {
       molecules(L.mid, lm.id);
     } else if (A.core === 'neurons') {
@@ -590,13 +726,10 @@
           (rnd(lm.id + 'airy', t) * SCENE_H) + 'px;opacity:.35;'));
       }
     }
-    // The reveal: pull back and the thing you climbed off is a planet.
-    if (A.planet) {
-      L.mid.appendChild(el('div', 'planet', 'left:' + (cx - 520) + 'px;top:' +
-        (cy - 190) + 'px;width:1040px;height:1040px;'));
-      L.mid.appendChild(el('div', 'planet-rim', 'left:' + (cx - 536) + 'px;top:' +
-        (cy - 206) + 'px;width:1072px;height:1072px;'));
-    }
+    // The reveal, pulled one step further: the thing you climbed off is a planet,
+    // and it is one of several going round a star. The blue one is deliberately
+    // the third out and the only one with a rim light - it is the one you left.
+    if (A.system) systemScene(L, lm, cx, cy);
 
     // sim slots on an ellipse
     var n = groups.length;
@@ -604,8 +737,8 @@
       // offset off top-dead-centre: that band belongs to the plate and the banner
       var ang = -Math.PI / 2 + 0.55 + (i / Math.max(n, 1)) * Math.PI * 2;
       var b = simBox(g.sim, g.variants);
-      b.style.left = (SCENE_W / 2 + Math.cos(ang) * 396 - SLOT_W / 2) + 'px';
-      b.style.top = (SCENE_H / 2 + Math.sin(ang) * 245 - SLOT_H / 2) + 'px';
+      b.style.left = (SCENE_W / 2 + Math.cos(ang) * SLOT_RX - SLOT_W / 2) + 'px';
+      b.style.top = (SCENE_H / 2 + Math.sin(ang) * SLOT_RY - SLOT_H / 2) + 'px';
       L.near.appendChild(b);
     });
   }
@@ -668,16 +801,34 @@
     groundBand(L.mid, rock);
     m(150, rock - 300, 58, 300, 'solid');
     m(138, rock - 334, 82, 34, 'solid');
-    // apex at the lamp, spreading out to sea — see .beam, which uses border-right
-    L.mid.appendChild(el('div', 'beam', 'left:220px;top:' + (rock - 328) + 'px;'));
+    /* The beam. Three passes, because one flat wedge read as a pale triangle
+       rather than as light: a wide soft spill, a brighter cone inside it, and a
+       hard core down the middle. All three are narrow at the lens and widen out
+       to sea, and all three fade along their length - the old wedge held one
+       constant tint the whole way out, which is what made it read as a shape
+       instead of as something being lit. The halo at the lens is what sells the
+       source; without it the beam appears to start from nothing. */
+    var lampY = rock - 328;
+    L.mid.appendChild(el('div', 'beam beam-spill', 'left:214px;top:' + (lampY - 152) + 'px;'));
+    L.mid.appendChild(el('div', 'beam beam-cone', 'left:214px;top:' + (lampY - 88) + 'px;'));
+    L.mid.appendChild(el('div', 'beam beam-core', 'left:214px;top:' + (lampY - 34) + 'px;'));
+    L.mid.appendChild(el('div', 'lamp-glow', 'left:92px;top:' + (lampY - 62) + 'px;'));
     m(0, rock - 12, 96, 12, 'solid', 'opacity:.7;');
     m(300, rock + 26, 300, 9, 'solid', 'opacity:.75;');            // jetty
     m(340, rock + 35, 8, 40, 'solid'); m(540, rock + 35, 8, 40, 'solid');
+    /* Keepers and visitors. The rock and the jetty are the only flat ground in
+       the scene, so they stand on those, and clear of the tower base where the
+       lamp glow is brightest. */
+    L.mid.appendChild(character('keeper', 1, 268, rock + 4, 104, { kind: 'kicker' }));
+    L.mid.appendChild(character('keeper', 5, 452, rock + 26, 96));
+    L.mid.appendChild(character('keeper', 8, 618, rock + 26, 92, { kind: 'kicker' }));
+    L.far.appendChild(character('keeperfar', 2, 980, rock - 34, 54, { style: 'opacity:.5;' }));
     foreBand(L.near, GROUND_Y + 178, 12, 'kelp');
     n(-60, GROUND_Y + 122, 210, 90, 'rock');
     n(430, GROUND_Y + 150, 240, 92, 'rock');
     n(760, GROUND_Y + 128, 180, 74, 'rock');
     n(1040, GROUND_Y + 146, 220, 96, 'rock');
+    L.near.appendChild(character('keeper', 12, 246, GROUND_Y + 196, 172));
   };
 
   BUILD.playground = function (L, lm) {
@@ -689,9 +840,18 @@
     }
     groundBand(L.mid, GROUND_Y,
       'background:linear-gradient(180deg,rgba(96,124,84,.6),rgba(26,38,28,.8));');
-    var g = GROUND_Y;
+
+    /* Each apparatus stands on its own baseline rather than all four on the
+       horizon. Everything here is on one layer, so the only depth cue available
+       is how far down the ground plane a thing sits — four objects sharing one y
+       read as a shelf. Nearer ones sit lower and are drawn later, so they
+       overlap what is behind them. */
+    var gSwing = GROUND_Y - 18, gSpring = GROUND_Y - 6,
+        gSee = GROUND_Y + 30, gBowl = GROUND_Y + 54;
+    var g;
 
     // swings — pendulum-lab
+    g = gSwing;
     m(40, g - 158, 11, 158, 'solid'); m(220, g - 158, 11, 158, 'solid');
     m(40, g - 166, 191, 10, 'solid');
     m(80, g - 156, 3, 92, 'thin'); m(150, g - 156, 3, 92, 'thin');
@@ -700,37 +860,109 @@
     line(L.mid, 196, g - 156, 172, g - 74, 'height:2px;opacity:.7;');
     ball(L.mid, 'bob', 172, g - 68, 18);
 
-    // seesaw — balancing-act. One plank pivoting on the fulcrum, not two halves.
-    m(310, g - 30, 40, 30, 'peak fulcrum');
-    m(200, g - 42, 260, 8, 'solid', 'transform:rotate(-11deg);');
-    ball(L.mid, 'bob', 208, g - 26, 24);          // the load sitting on the low end
-
     // spring stand — masses-and-springs, hookes-law
+    g = gSpring;
     m(660, g - 150, 8, 150, 'solid'); m(800, g - 150, 8, 150, 'solid');
     m(654, g - 158, 154, 9, 'solid');
     m(692, g - 149, 22, 54, 'spring'); m(752, g - 149, 22, 76, 'spring');
     m(686, g - 95, 34, 24, 'solid', 'border-radius:3px;');   // hanging masses
     m(746, g - 73, 34, 24, 'solid', 'border-radius:3px;');
 
-    // skate bowl — energy-skate-park, with a coping lip either side
-    m(860, g - 100, 300, 100, 'bowl');
-    m(848, g - 106, 30, 7, 'solid'); m(1142, g - 106, 30, 7, 'solid');
+    // seesaw — balancing-act. One plank pivoting on the fulcrum, not two halves.
+    g = gSee;
+    m(310, g - 30, 40, 30, 'peak fulcrum');
+    m(200, g - 42, 260, 8, 'solid', 'transform:rotate(-11deg);');
+    ball(L.mid, 'bob', 208, g - 26, 24);          // the load sitting on the low end
+
+    /* Skate bowl — energy-skate-park. It used to be a U-shaped outline sitting
+       ON the ground, which read as a piece of string. A bowl is a hole, so this
+       one is dug into the ground plane and hangs below it: deck either side,
+       coping capping the rim, and a transition line inside so the wall has a
+       surface for the eye to run down. */
+    g = gBowl;
+    var bx = 850, bw = 320;
+    m(bx - 68, g - 9, 76, 9, 'solid', 'opacity:.85;');            // deck, left
+    m(bx + bw - 8, g - 9, 76, 9, 'solid', 'opacity:.85;');        // deck, right
+    m(bx, g - 4, bw, 130, 'bowl');
+    m(bx - 12, g - 13, 32, 9, 'coping'); m(bx + bw - 20, g - 13, 32, 9, 'coping');
+    L.mid.appendChild(el('div', 'bowl-line', 'left:' + (bx + 18) + 'px;top:' +
+      (g + 8) + 'px;width:' + (bw - 36) + 'px;height:98px;'));
+    L.mid.appendChild(character('skaters', 3, bx + 46, g + 100, 86, { kind: 'skater' }));
+
+    /* People, spread over all three layers so the crowd gains depth from the
+       parallax offsets rather than sitting on one flat plane. */
+    [[96, gSwing + 8, 96], [500, gSee + 12, 104], [610, gSpring + 14, 92],
+     [1116, gBowl - 6, 100]].forEach(function (p, k) {
+      L.mid.appendChild(character('parkmid', k, p[0], p[1], p[2]));
+    });
+    [[-30, 58], [386, 54], [742, 60], [1180, 56]].forEach(function (p, k) {
+      L.far.appendChild(character('parkfar', k, p[0], GROUND_Y - 4, p[1],
+        { style: 'opacity:.5;' }));
+    });
+
     foreBand(L.near, GROUND_Y + 172, 0);
+    [250, 902].forEach(function (x, k) {
+      L.near.appendChild(character('parknear', k, x, GROUND_Y + 198, 174));
+    });
     for (var k = 0; k < 22; k++) n(-340 + k * 92, GROUND_Y + 118, 4, 56, 'thin', 'opacity:.38;');
     n(-1400, GROUND_Y + 112, 4000, 3, 'thin', 'opacity:.34;');                      // fence rail
   };
+
+  /* A run of overhead cable between two poles. Two wires, each a div with only a
+     bottom border and a tall elliptical radius, which is the cheapest honest
+     catenary in flat CSS - a straight line between poles reads as a fence rail. */
+  function cableRun(layer, x1, x2, y, sag, style) {
+    var w = x2 - x1;
+    [0, 7].forEach(function (dy, i) {
+      layer.appendChild(el('div', 'cable', 'left:' + x1 + 'px;top:' + (y + dy) +
+        'px;width:' + w + 'px;height:' + (sag + dy * 0.4) + 'px;' + (style || '')));
+    });
+  }
 
   BUILD.city = function (L, lm) {
     var f = boxer(L.far), m = boxer(L.mid), n = boxer(L.near);
     hazeBand(L.far, GROUND_Y);
     var fh = [140, 210, 170, 250, 190, 160, 230, 200, 150, 240, 180];
     for (var i = 0; i < fh.length; i++) f(-260 + i * 152, GROUND_Y - fh[i], 118, fh[i], 'building far-tone');
+    /* A wind turbine past the end of the street: the generation end of the
+       city, and the only thing in the scene that says where the current in all
+       these circuits comes from. It turns, which makes it the one moving thing
+       on the route - a single compositor transform on one element, so it costs
+       nothing the camera would notice.
+
+       It stands in the far layer, so it only reads if the mid skyline gets out
+       of its way; the two blocks in front of it are deliberately short (see hs
+       below) and the whole skyline steps down towards it. */
+    /* Tall on purpose: the rotor has to clear the top slot row (which starts at
+       GROUND_Y-260-SLOT_ROW) or it is simply behind a wall of sim boxes, and it
+       has to stay left of x 1041 or it is behind the ruler. The mast runs down
+       behind the buildings, which is what makes it read as standing beyond the
+       far end of the street rather than floating over it. */
+    var wx = 980, wtop = 16, blade = 84;
+    f(wx - 5, wtop + 26, 10, GROUND_Y - wtop - 26, 'mast');
+    f(wx - 12, wtop + 14, 24, 19, 'solid', 'border-radius:4px;');   // nacelle
+    var hub = el('div', 'turbine', 'left:' + wx + 'px;top:' + (wtop + 24) + 'px;');
+    for (var bl = 0; bl < 3; bl++) {
+      hub.appendChild(el('div', 'blade', 'height:' + blade + 'px;transform:rotate(' +
+        (bl * 120) + 'deg);'));
+    }
+    L.far.appendChild(hub);
     groundBand(L.mid, GROUND_Y,
       'background:linear-gradient(180deg,rgba(74,78,86,.7),rgba(22,25,30,.85));');
-    var hs = [180, 300, 230, 380, 260, 320, 200, 420, 240];
+    // the last two are short so the turbine behind them is visible; the street
+    // reads as stepping down out of downtown towards the power district
+    var hs = [180, 300, 230, 380, 260, 320, 210, 150, 130];
     for (var j = 0; j < hs.length; j++) m(40 + j * 128, GROUND_Y - hs[j], 96, hs[j], 'building');
     m(1150, GROUND_Y - 260, 9, 260, 'solid');
     m(1136, GROUND_Y - 268, 38, 9, 'solid');
+    /* Overhead cables, strung pole to pole down the street. The poles are in the
+       mid layer with the buildings; the wires sag between them. */
+    var poleY = GROUND_Y - 196;
+    [-140, 200, 540, 880, 1220].forEach(function (px, k) {
+      m(px - 4, poleY, 9, 196 + 24, 'solid', 'opacity:.9;');       // pole
+      m(px - 34, poleY + 8, 68, 6, 'solid', 'opacity:.85;');       // crossarm
+      if (k) cableRun(L.mid, px - 340, px, poleY + 12, 34);
+    });
     L.mid.appendChild(el('div', 'field-layer', 'top:' + (GROUND_Y - 400) + 'px;height:400px;'));
     L.mid.appendChild(el('div', 'note-tag', 'left:14px;top:' + (GROUND_Y - 452) +
       'px;width:250px;line-height:1.55;',
@@ -758,15 +990,7 @@
      between a corridor of doors and a corridor of doors that does chemistry. */
   function labKit(layer, zone, x, y) {
     var b = boxer(layer);
-    if (zone === 'gases') {                       // a piston cylinder over a burner
-      b(x + 20, y - 54, 34, 54, 'glass');
-      b(x + 22, y - 30, 30, 28, 'fill');          // trapped gas
-      b(x + 17, y - 58, 40, 5, 'solid');          // plunger
-      b(x + 35, y - 76, 4, 20, 'solid');          // plunger rod
-      b(x + 84, y - 16, 22, 16, 'solid');         // burner
-      layer.appendChild(el('div', 'shape fire', 'left:' + (x + 86) + 'px;top:' +
-        (y - 34) + 'px;width:18px;height:20px;'));
-    } else if (zone === 'solutions') {            // flask, beaker, test tubes
+    if (zone === 'solutions') {                   // flask, beaker, test tubes
       b(x + 14, y - 46, 38, 46, 'flask');
       b(x + 22, y - 20, 22, 20, 'fill');
       b(x + 66, y - 34, 26, 34, 'glass');
@@ -804,10 +1028,18 @@
     [[-30, SCENE_H + 60, 480, GROUND_Y - 20], [1230, SCENE_H + 60, 720, GROUND_Y - 20],
      [-30, 48, 480, GROUND_Y - 300], [1230, 48, 720, GROUND_Y - 300]]
       .forEach(function (p) { line(L.mid, p[0], p[1], p[2], p[3], 'opacity:.22;'); });
+    /* Door pitch follows the zone count. A door plus its bench is 282 wide, so
+       290 is the floor; above that the doors spread to fill the corridor instead
+       of bunching at the left end and leaving a third of the wall bare, which is
+       what happened the moment the gases zone left for Molecular Scale. */
+    var pitch = clamp((SCENE_W - 140) / Math.max((lm.zones || []).length, 1), 290, 380);
     (lm.zones || []).forEach(function (z, zi) {
-      var x = 60 + zi * 290;
-      m(x, GROUND_Y - 100, 118, 100, 'door');
-      m(x + 104, GROUND_Y - 56, 8, 3, 'thin', 'opacity:.6;');     // handle
+      var x = 60 + zi * pitch;
+      /* 74 rather than 100. The 2x2 block of zones above needs the wall clear
+         down to GROUND_Y-126 to keep any air between its two bands, and a
+         slightly short door on a far wall costs nothing. */
+      m(x, GROUND_Y - 74, 118, 74, 'door');
+      m(x + 104, GROUND_Y - 40, 8, 3, 'thin', 'opacity:.6;');     // handle
       L.mid.appendChild(el('div', 'zone-tag', 'left:' + x + 'px;top:' + (GROUND_Y + 12) + 'px;', z));
       // a bench outside each room, kitted for what happens inside it
       var bx = x + 132, by = GROUND_Y + 44;
@@ -843,10 +1075,21 @@
     f(930, GROUND_Y - 236, 520, 236, 'hill far-tone');
     f(1300, GROUND_Y - 150, 420, 150, 'hill far-tone');
     f(-1400, GROUND_Y - 3, 4000, 3, 'thin', 'opacity:.2;');
-    // the range behind the slabs — drawn first so the foothills sit in front of it
-    f(-340, GROUND_Y - 430, 640, 430, 'peak far-tone', 'opacity:.3;');
-    f(180, GROUND_Y - 620, 780, 620, 'peak far-tone', 'opacity:.34;');
-    f(700, GROUND_Y - 470, 560, 470, 'peak far-tone', 'opacity:.26;');
+    /* The range behind the slabs — drawn first so the foothills sit in front of
+       it. Three isoceles triangles read as a child's drawing of mountains, so
+       this is a generated ridge line instead: asymmetric peaks at irregular
+       spacing with a saddle between each pair. Two ranges at different opacity
+       do the aerial perspective. */
+    ridge(L.far, 'range-back', -420, GROUND_Y, 2100, 560, 9, 0.30);
+    ridge(L.far, 'range-front', -300, GROUND_Y, 1900, 400, 7, 0.40);
+    /* Conifers along the base of the range and up the near slope. They are the
+       thing that gives the rock a size — a slab is just a shape until something
+       tree-shaped stands next to it. */
+    for (var c = 0; c < 26; c++) {
+      var th = 34 + rnd('conif', c) * 40;
+      f(-300 + c * 62 + rnd('conif', c + 60) * 34, GROUND_Y - th + 2,
+        th * 0.62, th, 'conifer far-tone');
+    }
 
     groundBand(L.mid, GROUND_Y);
     m(120, GROUND_Y - 396, 246, 396, 'slab', 'transform:skewX(-13deg);');
@@ -861,6 +1104,10 @@
     L.mid.appendChild(el('div', 'shape fire', 'left:178px;top:' + (GROUND_Y + 72) +
       'px;width:38px;height:38px;'));
     L.mid.appendChild(character('trailhead', 1, 298, GROUND_Y + 40, 116, { kind: 'kicker' }));
+    // a stand of trees at the trailhead, at ground scale rather than range scale
+    [[70, 86], [1064, 104], [1148, 74]].forEach(function (p, i) {
+      m(p[0], GROUND_Y + 30 - p[1], p[1] * 0.6, p[1], 'conifer');
+    });
     m(830, GROUND_Y + 34, 92, 38, 'scrub'); m(960, GROUND_Y + 46, 68, 30, 'scrub');
     m(866, GROUND_Y + 30, 14, 10, 'solid', 'border-radius:50%;');   // rabbit
     m(880, GROUND_Y + 22, 4, 9, 'thin');                            // ear
@@ -892,20 +1139,47 @@
 
     if (!groups.length) return;
     if (lm.id === 'lab-corridor') {
+      /* Four zones in a 2x2 block rather than four stacked rows. Stacked, the
+         zones read as one long list and the corridor behind them disappears;
+         quartered, each zone is a group you take in at once and the wall stays
+         visible between them. Every zone lays out in a single row, so its perRow
+         is however many sims it holds - the quadrant is the unit here, not the
+         row width. The right column is placed from its own width so the widest
+         zone (solutions, four sims) still lands inside the scene. */
       var zones = lm.zones || [];
-      zones.forEach(function (z, zi) {
+      /* Zones fill a 2x2 block, each one a single row of however many sims it
+         holds. Three constraints shape it, all of them the HUD or the wall:
+
+         - The readout card owns everything above y 170 out to x 454 at a 1000x600
+           window, and the ruler everything past x 1041, so the whole block sits
+           below the readout and between those two edges. That is the worst case,
+           not the typical one: the HUD is a fixed size in screen pixels, so it
+           swallows fewer scene units the larger the window gets.
+         - The two bands are pushed as far apart as the scene allows. Packed tight
+           they read as one block of boxes rather than as separate groups, and the
+           labels alone were not enough to separate them. The doors below shrank
+           to 74 units to pay for the gap.
+         - The left column is flush with the scene edge and the right column is
+           flush with the ruler. Right-aligning that column rather than starting
+           it at a fixed x is what keeps the frame filled when a zone is narrow:
+           with one sim in spectrometry, a left-aligned right column left the last
+           third of the corridor empty. */
+      var LEFT = 10, RIGHT = 1030, ROW_Y = [GROUND_Y - 311, GROUND_Y - 170];
+      zones.slice(0, 4).forEach(function (z, zi) {
         var g = groups.filter(function (x) { return x.sim.zone === z; });
         if (!g.length) return;
-        // tighter pitch than the outdoor stops: four zones have to clear the doors
-        var y = GROUND_Y - 190 - (zones.length - 1 - zi) * 88;
-        L.mid.appendChild(el('div', 'zone-label', 'left:4px;top:' + (y + 30) + 'px;', z));
-        layoutRows(L.mid, g, { perRow: 6, x: 120, y: y, center: false });
+        var w = g.length * SLOT_W + (g.length - 1) * SLOT_GAP;
+        var y = ROW_Y[zi >> 1], x = (zi & 1) ? RIGHT - w : LEFT;
+        L.mid.appendChild(el('div', 'zone-label', 'left:' + x + 'px;top:' +
+          (y - 17) + 'px;', z));
+        layoutRows(L.mid, g, { perRow: g.length, x: x, y: y, center: false });
       });
       return;
     }
     var cfg = SLOT[lm.id] || SLOT_DEFAULT;
     layoutRows(L.near, groups, {
-      perRow: cfg.perRow, x: SCENE_W / 2, y: cfg.y, center: true, groundY: GROUND_Y
+      perRow: cfg.perRow, x: SCENE_W / 2, y: cfg.y, center: true,
+      groundY: GROUND_Y
     });
   }
 
@@ -915,7 +1189,7 @@
         (-SCENE_W / 2) + 'px;margin-top:' + (-SCENE_H / 2) + 'px;');
       sc.appendChild(el('div', 'scene-frame'));
       var groups = groupSims(simsFor(lm.id));
-      if (lm.scale === 'human') surfaceScene(lm, sc, groups); else abstractScene(lm, sc, groups);
+      if (lm.scale === 'human') surfaceScene(lm, sc, groups); else abstractScene(lm, sc, groups, i);
 
       var plate = el('div', 'plate', 'top:26px;');
       plate.appendChild(el('div', 'plate-rule'));
@@ -1085,10 +1359,30 @@
     };
   }
 
+  /* How long the edge you are currently on takes to settle.
+
+     The spring is linear, so settle time does not depend on how far you are
+     travelling - every edge takes the same time whatever its magnitude. That is
+     right for almost all of them and wrong for exactly one: coming out of the
+     head has to be slower than a zoom between two abstract scales, or it reads
+     as one. A landmark can name a "pace" in the manifest and the edge INTO it
+     stretches by that factor (stiffness goes as 1/pace^2, damping as 1/pace, so
+     the motion keeps its shape and only its clock changes).
+
+     The edge is named by the landmark you are arriving at, which is also how
+     move and zoom are named, so going backwards has to look the other way at a
+     stop boundary or leaving the beach would borrow the lighthouse's pace. */
+  function edgePace() {
+    var base = targetP < progress ? Math.ceil(progress) - 1 : Math.floor(progress);
+    var i = clamp(base + 1, 1, stops.length - 1);
+    return stops[i].pace || 1;
+  }
+
   function frame(t) {
     var dt = lastT ? Math.min((t - lastT) / 1000, 0.05) : 0.016;
     lastT = t;
-    var k = 42, c = 2 * Math.sqrt(k) * 0.92;
+    var pace = edgePace();
+    var k = 42 / (pace * pace), c = 2 * Math.sqrt(42) * 0.92 / pace;
     vel += (k * (targetP - progress) - c * vel) * dt;
     progress += vel * dt;
     if (Math.abs(targetP - progress) < 0.0004 && Math.abs(vel) < 0.002) { progress = targetP; vel = 0; }

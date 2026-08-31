@@ -20,10 +20,16 @@ nucleus → atom → molecule → cell
                                                      |
                                         [passage: off the summit]
                                                      |
-                                 atmosphere → orbit → deep space
+                                    atmosphere → orbit
 ```
 
-13 stops. **The Foothills used to be a 14th** and the Flatirons used to hold zero
+12 stops. **Deep Space used to be a 13th**, holding the cosmic sims while Orbit held
+the picture. That left two empty stops in a row at the end — the atmosphere and then
+orbit — which is the Foothills mistake again, and it split one subject across two
+places for no reason: the sims and the system they are about belong in the same
+frame. Orbit is the terminus now and every cosmic sim rings the system.
+
+**The Foothills used to be a stop too** and the Flatirons used to hold zero
 sims as a deliberate breath before the ascent. Both are gone: an empty stop read
 as a stall, not a breath. The Foothills folded into the Flatirons — its three
 sims now sit at the trailhead at the base of the slabs, its hills are the rear
@@ -46,11 +52,11 @@ the Flatirons and climb into orbit. Both are hand-animated, both come late (Stag
 | `route.json` | **Single source of truth.** Scales, topics, sections, landmarks, passages, every sim's placement, plus what was excluded and why. |
 | `validate.js` | `node validate.js` — diffs the manifest against the original list, checks referential integrity, prints a density and topic-spread report. Run it after any manifest edit. |
 | `original-list.txt` | The 143 raw PhET slugs. Only input to validation. |
-| `index.html` | The grey-box viewer: all CSS, all markup. Landmark geometry classes live here. |
+| `index.html` | The viewer: all CSS, all markup. Landmark geometry classes live here. |
 | `route-app.js` | Camera, scene builders, sky/light tables, HUD. One `BUILD.<landmark>` function per surface landmark. |
 | `build-data.js` | `node build-data.js` — regenerates `route-data.js` from `route.json` so the page works over `file://`. **Run it after every manifest edit** or the fallback goes stale. |
 | `route-data.js` | Generated. Don't hand-edit. |
-| `energy skatepark/` | PhET skater sprites, 180x242 PNGs, consistently registered (head centre at about 49%/23% of the frame). The grey-box uses these for the beach character and the city crowd. |
+| `energy skatepark/` | PhET skater sprites, 180x242 PNGs, consistently registered (head centre at about 49%/23% of the frame). Used for the beach character and the crowds. |
 | `soccer common/` | PhET kicker sprites, SVG. Standing people; used in the beach and city crowds alongside the skaters. |
 | `thumbs/` | Generated. 87 sim screenshots, 240x158 PNG, 2.2 MB total — a 2x copy of PhET's 600x394. One per published slug. Regenerate by re-running the download in **Thumbnails** below. |
 
@@ -60,10 +66,12 @@ imports them; if you ever need one back, it is regenerable from the image.
 
 Serve it rather than opening the file directly — `.claude/launch.json` has an
 `http-server` config on port 5177. `file://` works via `route-data.js`, but the
-fetch path is the one Stage 2 will use.
+fetch path is the one a live sim launch will use.
 
-Current state: all 143 accounted for. 90 placed (78 primary + 12 variants), 2 off-route
-tools, 51 excluded (40 pure math, 9 dev/test scaffolding, 2 deferred statistics sims).
+Current state: all 143 accounted for. 87 placed (76 primary + 11 variants), 2 off-route
+tools, 54 excluded (40 pure math, 9 dev/test scaffolding, 2 deferred statistics sims,
+3 repositories PhET never published a build of). **Nothing on the route lacks a
+screenshot and a runnable URL** — that is the rule the last exclusion enforces.
 
 ## The camera
 
@@ -77,12 +85,37 @@ every scale — a scene at exponent E measures `2^E` world units per one of its 
   in empty sky with the ground gone. The reveal is deliberately held for the *next*
   move — orbit zooms out, and the thing you climbed off turns out to be a planet.
   Launch, then reveal; doing both at once read as backing away rather than going up.
-- **nest** — a scene pinned to a point inside the next one out, via `NEST`. Only
-  the beach uses it, and it is what makes the first passage work: the neural-tissue
-  scene is pinned to the head of the character standing on the sand, so pulling out
-  of the neuron lands you looking at the person who was carrying it. Change
-  `HERO` and the anchor follows; the camera keyframes read it before any scene is
-  built, which is why `HERO` is declared at the top of the file.
+- **nest** — a scene pinned to a point inside the next one out, via `NEST`. Two
+  scenes use it, and both are the moments the route is about:
+
+  The **beach** is pinned to the head of the character standing on the sand, so
+  pulling out of the neuron lands you looking at the person who was carrying it.
+  Change `HERO` and the anchor follows.
+
+  **Orbit** is pinned to the blue planet, so leaving the atmosphere comes *out of a
+  world* rather than backing away from a frame: the sky you were standing in shrinks
+  onto the planet it belongs to while the system opens out around it. That edge's
+  zoom is 3.0 rather than the 1.2 it used to be — a short pull back made the planet
+  feel like a retreat, but once the move is anchored *to* the planet a long one does
+  the opposite, and the further you pull the more the planet reads as a destination
+  rather than as the frame shrinking. Change the body table and the anchor follows.
+
+  Both anchors are read before any scene is built, which is why `HERO` and the
+  `BODIES` table are both declared at the top of `route-app.js` rather than inside
+  the builders that draw them. This is the same trap `headY()` fell into once: two
+  copies of one position, drifting apart in silence.
+
+A landmark can also name a **`pace`**, which stretches the settle time of the edge
+*arriving* at it. Only the beach does, at 2.6. The spring is linear, so settle time
+does not depend on distance and every edge otherwise takes the same time — right for
+almost all of them and wrong for exactly one, because coming out of a person's head
+has to be slower than a zoom between two abstract scales or it reads as one. Stiffness
+scales as 1/pace², damping as 1/pace, so the motion keeps its shape and only its clock
+changes. The edge is named by the landmark you arrive at, which is also how `move` and
+`zoom` are named, so `edgePace()` has to look the other way at a stop boundary when
+you are travelling backwards or leaving the beach would borrow the lighthouse's pace.
+One consequence worth knowing: a long jump that crosses the beach edge crawls through
+it. That is the edge doing its job, not a bug.
 
 A landmark can name its own move in `route.json` (`"move": "pan" | "zoom" | "climb"`,
 validated). Only the atmosphere does; everything else falls out of the default rule
@@ -116,12 +149,86 @@ They are not all the same kind of emptiness, so each names its own contents in
 | Landmark | What it is |
 |---|---|
 | The Core | **Void and one object.** No rings, no specks, no glow, no star field — the nucleus is a packed cluster of nucleons and nothing else is in the frame. |
-| The Shell | Rings and particles: the generic abstract treatment. |
-| The Assembly | **Several molecules**, each a few spheres joined by bonds, at varying sizes. This is the band where things stop being single particles and start being structures. |
+| The Shell | **An atom.** The same nucleon cluster as the stop below, with four shells drawn round it and electrons riding them — 2, 4, 4, 3 filling outward. Its scale is **not** a free parameter: see below. The shells are circles, so the electrons sit on circles; they used to ride an ellipse of the same radius, which put every one of them off its own shell. |
+| Molecular Scale | **Several molecules**, each a few spheres joined by bonds, at varying sizes. This is the band where things stop being single particles and start being structures, and where the gases sims live — a box of molecules seen directly is this scale, not a room off a corridor. |
 | Neural Tissue | **Cells.** A soma with dendrites fanning off it and one long axon, six of them at varying sizes. The centre one is what lands on the character's temple during the passage. |
-| The Atmosphere | Thin air. The ground is gone, the limb glows below, nothing else — and **zero sims, on purpose**. See below. |
-| Orbit | The planet, and every planet-scale sim — including Gravity Force Lab, which moved out of the playground: two masses and one inverse-square law, out where that law is the only thing left. |
-| Deep Space | Rings and particles again, with a full star field. |
+| The Atmosphere | Thin air. The ground is gone and the limb glows below. One sim: the Greenhouse Effect, which is the only place on the route where you are standing inside the thing being simulated. The limb is deliberately the same blue as the planet at Orbit, because it is the same planet. |
+| Orbit | **The system, and the terminus.** The sun holds the centre and six bodies ride squashed ellipses round it, the one you climbed off among them — the third out, the only one with a rim light. The reveal pulled one step further than it used to be: not just "that was a planet" but "that planet is one of several going round a star". Every cosmic sim rings it. The orbit radii are sized to fit *inside* the slot ring, so the sims sit around the picture rather than across it — if you resize one, resize the other. The ringed planet's ring is two clipped halves of one ellipse, drawn either side of the ball in DOM order, because a single ellipse over the disc reads as a hoop resting on a circle. |
+
+## What each surface landmark is made of
+
+Landmark geometry should be the sims that live there. Beyond that, a few things
+that were got wrong once and are worth not getting wrong again:
+
+- **The lighthouse beam is three wedges, not one.** A CSS border triangle is one
+  flat colour the whole way out, which is what made the old beam read as a pale
+  shape rather than as light. These are clipped rectangles — a wide soft spill, a
+  brighter cone, a hard core — each narrow at the lens, widening out to sea, and
+  each fading along its length. The halo at the lens matters as much as the beam:
+  without it the light appears to start from nothing.
+- **The playground's apparatus stands on four different baselines.** Everything in
+  that scene is on one layer, so how far down the ground plane a thing sits is the
+  only depth cue there is; four objects sharing one y read as a shelf. Nearer ones
+  sit lower and are drawn later so they overlap what is behind them.
+- **The skate bowl is a hole.** It used to be a U-shaped outline sitting *on* the
+  ground, which read as a piece of string. It is now dug into the ground plane and
+  hangs below it, with deck either side, coping on the rim, and an inset shadow at
+  the lip that is what makes it read as depth rather than as a dark shape painted
+  on the grass.
+- **City buildings are opaque.** They were a grid of hairlines over a translucent
+  panel, so the sky and the blocks behind showed through and the skyline read as
+  scaffolding. Now the block is solid and the windows are cut out of it: glass
+  bands with opaque piers laid over the top.
+- **The city's turbine has exactly one place it can stand.** Two full rows of seven
+  sim boxes cover the sky from x 66 to 1134 and the HUD owns both edges, so the
+  only clear sky in the scene is the strip above the rows. That is why the slot
+  rows sit lower than they used to and why the rotor is up at y 40 with its mast
+  running down behind the buildings. If the city is ever split (see below), this
+  can relax.
+- **Overhead cable is a bottom border with a tall elliptical radius.** Cheapest
+  honest catenary there is; a straight run between poles reads as a fence rail.
+- **The lab is a 2x2 block of zones**, one row of sims each — three of them now
+  that gases has gone to Molecular Scale, so the fourth cell is empty. Stacked in
+  rows they read as one long list and the corridor behind them disappeared. At a
+  1000x600 window the readout card owns everything above y 170 out to x 454 and
+  the ruler everything past x 1041, so the whole block sits below the readout and
+  between those edges; the HUD is a fixed size in screen pixels, so it swallows
+  *fewer* scene units the larger the window — that is the worst case, not the
+  typical one. The two bands are pushed as far apart as the scene allows, because
+  packed tight they read as one block of boxes rather than as separate groups and
+  the labels alone were not enough; the doors are 74 units rather than 100 to pay
+  for the gap. The left column is flush with the scene edge and the right column
+  is flush with the ruler — **right-aligned, not placed at a fixed x**, which is
+  what keeps the frame filled when a zone is narrow. With one sim in spectrometry
+  a left-aligned right column left the last third of the corridor empty. The door
+  pitch follows the zone count for the same reason.
+- **The Flatirons range is generated, not three triangles.** `ridge()` builds a
+  clip-path from n peaks at irregular spacing, each with its own height and
+  asymmetry and a saddle dropped between neighbours; two ranges at different
+  opacity do the aerial perspective. Conifers along its base and at the trailhead
+  are what give the slabs a size — rock is just a shape until something
+  tree-shaped stands next to it.
+
+### One nucleus, seen at two scales
+
+The cluster at the centre of the atom is the *same object* as the nucleus one stop
+down, drawn at exactly the scale that stop renders at from here — `2^(exps[i-1] -
+exps[i])`, computed in `abstractScene` and handed to `atomShells`. Because scene
+*i-1* is itself rendered at that scale relative to scene *i*, the two clusters land
+on the same pixels at every camera position, and the crossfade between the scenes
+is invisible: one object, zoomed.
+
+It was 0.34, picked by eye, which is 1.6x too big. The transition dissolved one
+nucleus into a differently-sized nucleus sitting in the same place, which is a
+strange thing to watch and hard to name when you see it.
+
+**So the scale is not a knob.** If the nucleus should be bigger at the atom, make
+it bigger in `nucleusCluster` — which makes it bigger at the nucleus stop too,
+because it is the same object. That is exactly what happened here: the cluster grew
+from 100 to 160 units wide so that at 0.218 it is still a thing with visible
+nucleons rather than a smudge, and the Core reads better for it. The alternative
+lever is the *zoom magnitude* of that edge, which is also fine to move — just never
+the scale on its own.
 
 ## Sprites
 
@@ -141,17 +248,30 @@ sprite; they were written out separately once and silently drifted, which put a
 `NaN` through every scene transform. There is now a finite-check on the keyframes
 at boot so that failure is loud instead of a blank world.
 
-### The Atmosphere holds zero sims
+### Placement is by scale, not by topic
 
-Deliberately, and it is *not* the mistake the Foothills was. The Foothills was an
-empty stop on a flat walk, so it read as a stall. The Atmosphere is the top of a
-vertical launch: the emptiness is the content — you have just left the ground and
-there is nothing up here yet. It is a beat inside a two-part move (launch, then
-reveal), which is also why the pull back to orbit is deliberately short. The
-Greenhouse Effect moved up to Orbit to sit with the other planet-scale sims.
+The route's axis is scale, so a sim goes where its subject *is*, not where its
+topic has friends. Three moves made that rule true where it had not been:
 
-If it ever starts feeling like a stall, the fix is to shorten the climb or fold it
-into the passage — not to park a sim there.
+- **Charges and Fields** dropped from the city to the nucleus. Point charges and
+  the field they make are the same picture at any scale, and down here the charges
+  are the protons in the cluster you are looking at. Coulomb's Law stays in the
+  city as the sideways pair — same law, different scale — and is still the
+  invisible layer over the street.
+- **The gases zone** — States of Matter, Gas Properties, Diffusion — left the Lab
+  for Molecular Scale. Every one of them is a box of molecules seen directly,
+  which is a scale, not a room off a corridor. That drops the Lab to three zones.
+- **The Greenhouse Effect** rose from Orbit to the Atmosphere, which is what it is
+  about, and which makes the Atmosphere the one stop on the route where you are
+  standing inside the thing being simulated.
+
+The Atmosphere therefore no longer holds zero sims, and the long argument that
+used to live here for why it should is retired. What survives of it: the emptiness
+up there was never the problem the Foothills was. The Foothills was an empty stop
+on a flat walk and read as a stall; the Atmosphere is the top of a vertical launch,
+where having almost nothing in the frame *is* the content. One sim does not change
+that — it is still a beat inside a two-part move. There is now no empty stop on
+the route at all.
 
 ## Thumbnails
 
@@ -168,7 +288,7 @@ spot-checked but exhaustive: all 87 published sims were fetched, screenshot and
 run URL both, and all 87 of each came back 200.
 
 **A slug here is a PhET repository name, not a published sim name.** That is what
-`original-list.txt` holds, and for 79 of the 90 the two happen to coincide. Eleven
+`original-list.txt` holds, and for 79 of the 87 the two happen to coincide. Eight
 do not, and they carry a `phet` object in the manifest:
 
 - **Eight legacy Java sims** live at `/sims/{project}/{sim}-600.png` — no `html/`,
@@ -181,11 +301,15 @@ do not, and they carry a `phet` object in the manifest:
   of it with `?simulation=`, so all three nuclear-physics sims share a URL that
   differs only in the query. Expect a slow cold start, and probably a different
   affordance from an HTML sim.
-- **Three repositories PhET never published a build of**: `xray-diffraction`,
-  `optics-lab`, `circuit-construction-kit-black-box-study`. No screenshot, no
-  runnable URL. They keep the grey box and wear a `no build` badge. Decide later
-  whether they stay on the route at all — the black-box study is only a variant
-  chip, but the other two hold real slots at the Shell and the Lighthouse.
+Three more repositories — `xray-diffraction`, `optics-lab` and
+`circuit-construction-kit-black-box-study` — PhET never published a build of at
+all. No screenshot, no runnable URL. They are **excluded** rather than placed, in
+their own `unpublished` bucket, so they stay accounted for against the original
+list without holding a slot on the route. For a while they were drawn as empty dark
+boxes with a `no build` badge, at the Shell and the Lighthouse and as a variant
+chip in the city; a box with no picture in a row of pictures reads as a loading
+failure, not as a fact about PhET. If one of them ever ships, move it back out of
+`excluded` and it needs nothing else.
 
 Resolve through `assets(sim)` in `route-app.js`, never by pasting a template.
 Anything that turns out to be exceptional belongs in the manifest next to the sim,
@@ -275,8 +399,8 @@ Also: set `allow` restrictively or several sims will chirp at once.
 ## Stages
 
 - **0 — Manifest.** ✅ Done, templates verified — see **Thumbnails** below.
-- **1 — Grey-box route.** ← *you are here, and it traverses.* Geometry for landmarks,
-  labeled boxes for sim slots at real sim-icon size. Discrete camera stops, eased
+- **1 — The route itself.** ← *you are here, and it traverses.* Drawn geometry for
+  landmarks, each sim showing its own screenshot at 1.2x sim-icon size. Discrete camera stops, eased
   transitions, arrows / scroll / drag / dot-strip all work. Built on top of that:
   three parallax depth layers per scene (`--pf` / `--pxu` / `--pyu`, see the CSS), a
   single light source that travels the route so the day arc runs alongside the scale
@@ -291,13 +415,14 @@ Also: set `allow` restrictively or several sims will chirp at once.
 - **3 — Topic overlay.** Build **waves-light first** (16 sims across 5 scales — it
   exercises the whole route). Gravity second.
 - **4 — Art.** 4a: the beach alone, full treatment, to get a real per-scene cost. 4b: city,
-  lab, playground, Flatirons, then the abstract scales last (they survive grey-box longest).
+  lab, playground, Flatirons, then the abstract scales last (they hold up longest
+  without illustration).
   Likely half the total effort.
 - **5 — The two passages.**
 - **6 — Polish.** URL state, local thumbnails, basics toggle, keyboard/focus across the
   iframe boundary, touch.
 
-Honest cut line: after **4a**. Grey-boxed route + one finished scene + working launch +
+Honest cut line: after **4a**. The drawn route + one finished scene + working launch +
 topic overlay is already a real thing.
 
 ## Stage 1 scope
@@ -341,12 +466,14 @@ Edit `route.json` and re-run `validate.js` rather than hard-coding positions in 
   has no `backdrop-filter` for this reason, and the readout only rewrites when the
   nearest stop changes. Measure in a real window; a background or non-compositing tab
   throttles `requestAnimationFrame` and will lie to you.
-- **Sim slots are exactly 120x80** — the size of a PhET sim icon, so Stage 2 can drop
-  the real thumbnail straight in. Everything inside is clipped to that box; the name
-  clamps to three lines. If a landmark's rows stop fitting, change its `perRow` in
-  `SLOT`, not the box.
-- **The sprites and the grey-box are at different fidelities now.** Real characters
-  against flat geometry looks unfinished, which is honest for this stage but means
+- **Sim slots are 144x96** — 1.2x a PhET sim icon and the same 3:2 its screenshot
+  ships in, so the picture drops in with no letterboxing. Everything inside is
+  clipped to the box; the name clamps to two lines. Every row width in `SLOT` was
+  checked against `SCENE_W` at this size, so if you scale it again, check them
+  again. If a landmark's rows stop fitting, change its `perRow`, not the box.
+- **The sprites, the screenshots and the drawn geometry are at three different
+  fidelities.** Real characters and real sim art against flat CSS shapes looks
+  unfinished, which is honest for where this is but means
   tonal judgements made now (the ground tints, mostly) will need redoing at Stage 4.
   The Flatirons hiker is still a stick figure on purpose — a skateboarder at a
   trailhead read wrong, and neither folder has a hiking pose.

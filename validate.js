@@ -15,7 +15,8 @@ const warnings = [];
 // --- Coverage: every original sim accounted for exactly once ---
 const placed = route.sims.map(s => s.slug);
 const tools = route.tools.sims.map(s => s.slug);
-const excluded = [...route.excluded.math, ...route.excluded.dev, ...route.excluded.deferred];
+const excluded = [...route.excluded.math, ...route.excluded.dev, ...route.excluded.deferred,
+  ...route.excluded.unpublished];
 const accounted = [...placed, ...tools, ...excluded];
 
 const originalSet = new Set(original);
@@ -46,6 +47,12 @@ route.landmarks.forEach(l => {
   }
   if (l.zoom !== undefined && !(typeof l.zoom === 'number' && l.zoom > 0)) {
     errors.push(`Landmark "${l.id}" has a non-positive zoom override "${l.zoom}"`);
+  }
+  // pace multiplies the settle time of the edge INTO this landmark, so it has to
+  // be at least 1 - a value below it would make one edge snap faster than the
+  // rest of the route, which reads as a stutter rather than as emphasis.
+  if (l.pace !== undefined && !(typeof l.pace === 'number' && l.pace >= 1)) {
+    errors.push(`Landmark "${l.id}" has a pace of "${l.pace}"; expected a number >= 1`);
   }
 });
 
@@ -122,7 +129,8 @@ const variantCount = route.sims.filter(s => s.variantOf).length;
 console.log(`  original list      ${original.length}`);
 console.log(`  placed on route    ${placed.length}  (${placed.length - variantCount} primary + ${variantCount} variants)`);
 console.log(`  tools (off route)  ${tools.length}`);
-console.log(`  excluded           ${excluded.length}  (math ${route.excluded.math.length}, dev ${route.excluded.dev.length}, deferred ${route.excluded.deferred.length})`);
+console.log(`  excluded           ${excluded.length}  (math ${route.excluded.math.length}, dev ${route.excluded.dev.length}, ` +
+  `deferred ${route.excluded.deferred.length}, unpublished ${route.excluded.unpublished.length})`);
 console.log(`  accounted          ${accounted.length}`);
 console.log(`  idle-motion sims   ${route.sims.filter(s => s.idleMotion).length}  (candidates for looping clips)`);
 
