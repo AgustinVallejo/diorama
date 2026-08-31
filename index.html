@@ -198,27 +198,52 @@
      they live inside layers that are transformed and opacity-animated every
      frame, which is the worst case for it. If the route ever needs the glass
      look back, put it on the readout chip alone and leave the slots flat. */
-  /* Exactly 120x80 — the size of a PhET sim icon. These are placeholders for the
-     real thumbnail, so they hold its footprint and nothing overflows it. */
-  .slot { position: absolute; width: 120px; height: 80px; padding: 6px 7px 5px;
-    border-radius: 5px; overflow: hidden; display: flex; flex-direction: column;
-    background: rgba(8,12,20,.76); border: 1px solid rgba(255,255,255,.2);
-    border-left-width: 3px; border-left-style: solid;
+  /* Exactly 120x80 — the size of a PhET sim icon, which is also the aspect its
+     screenshot ships in, so the picture drops in with no letterboxing. */
+  /* Two rings, dark inside light. A single hairline can only hold an edge against
+     one kind of background, and these boxes cross a whole day: a white one
+     disappears into the noon sky over the playground, a dark one disappears into
+     the void around the nucleus. Together they read on both. */
+  .slot { position: absolute; width: 120px; height: 80px;
+    border-radius: 5px; overflow: hidden;
+    background: rgba(8,12,20,.76);
+    border-left: 3px solid;
     opacity: calc(var(--lbl) * (1 - var(--passage)));
-    box-shadow: 0 3px 14px rgba(0,0,0,.4); color: #e8eef6; }
-  .slot-name { font-size: 10.5px; font-weight: 600; line-height: 1.22;
-    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
-  .slot-meta { display: flex; align-items: center; gap: 3px; margin-top: auto; }
-  .dot { width: 5px; height: 5px; border-radius: 50%; flex: none; }
-  .dot-sec { width: 4px; height: 4px; opacity: .6; }
-  .idle { font: 8px var(--mono); letter-spacing: .06em; padding: 0 2px; border-radius: 2px;
-    background: rgba(255,255,255,.14); flex: none; }
-  .slug { font: 8px var(--mono); opacity: .4; overflow: hidden; text-overflow: ellipsis;
-    white-space: nowrap; }
-  .variant { display: inline-block; margin: 3px 3px 0 0; font: 8px var(--mono);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.22),
+      0 3px 14px rgba(0,0,0,.45); color: #e8eef6; }
+  /* The screenshots are lit for a white page and the route is not one, so every
+     slot is knocked back a little; the near stop gets its own colour back below.
+     Without this, 78 bright rectangles read as the subject and the landscape they
+     are placed in reads as background, which is backwards. */
+  .slot-thumb { position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; display: block;
+    filter: saturate(.86) brightness(.82) contrast(1.04); }
+  .slot-bare { background: rgba(8,12,20,.86); }
+
+  /* Caption band. It sits on its own gradient rather than dimming the whole
+     picture, so the top two thirds of the screenshot stay clean. */
+  .slot-cap { position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; align-items: flex-end; gap: 3px; padding: 12px 5px 4px;
+    background: linear-gradient(180deg, rgba(6,9,15,0), rgba(6,9,15,.82) 42%, rgba(6,9,15,.94)); }
+  .slot-name { font-size: 9.5px; font-weight: 600; line-height: 1.2; letter-spacing: .005em;
+    text-shadow: 0 1px 2px rgba(0,0,0,.9);
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; flex: none; margin-bottom: 2px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.45); }
+  .dot-sec { width: 4px; height: 4px; opacity: .6; margin-bottom: 2.5px; }
+  /* t drops the captions and leaves the route as pictures alone. */
+  body.bare-slots .slot-cap, body.bare-slots .slot-vars,
+  body.bare-slots .idle { opacity: 0; }
+  .idle { position: absolute; right: 3px; top: 3px;
+    font: 8px var(--mono); letter-spacing: .06em; padding: 0 2px; border-radius: 2px;
+    background: rgba(4,7,12,.72); box-shadow: 0 0 0 1px rgba(255,255,255,.16); }
+  .nobuild { left: 3px; right: auto; opacity: .55; }
+  .variant { display: inline-block; margin: 0 3px 0 0; font: 8px var(--mono);
     letter-spacing: .04em; padding: 0 3px; border-radius: 2px;
-    border: 1px dashed rgba(255,255,255,.42); opacity: .75; }
-  .slot-vars { display: flex; flex-wrap: wrap; }
+    background: rgba(4,7,12,.72);
+    border: 1px dashed rgba(255,255,255,.42); opacity: .8; }
+  .slot-vars { position: absolute; left: 3px; top: 3px; right: 24px;
+    display: flex; flex-wrap: wrap; gap: 2px 0; }
   /* leader from a slot down to the spot on the ground it belongs to */
   .leader { position: absolute; width: 1px; background: linear-gradient(180deg,
     rgba(255,255,255,.34), rgba(255,255,255,.06));
@@ -339,7 +364,7 @@
     <div id="hints">
       scroll / drag to travel<br>
       <kbd>↑</kbd><kbd>↓</kbd> stop to stop · <kbd>Home</kbd><kbd>End</kbd> ends<br>
-      <kbd>g</kbd> grid · <kbd>l</kbd> legend · <kbd>h</kbd> hide hud
+      <kbd>g</kbd> grid · <kbd>l</kbd> legend · <kbd>t</kbd> captions · <kbd>h</kbd> hide hud
     </div>
     <div id="stage">stage 1 — grey-box route · geometry stands in for art</div>
   </div>

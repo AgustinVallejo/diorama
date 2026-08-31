@@ -292,12 +292,66 @@
       .sort(function (a, b) { return a.order - b.order; });
   }
 
+  /* Where a sim's picture and its playable build live.
+
+     A slug in the manifest is a PhET *repository* name, and for most sims that is
+     also the published sim name, so both URLs fall out of the slug alone. Eleven
+     do not, and they carry a "phet" object in route.json: eight legacy Java sims
+     whose project bundles several sims under one folder (nuclear-physics holds
+     three of ours), and three repositories PhET never published a build of.
+     Resolve through here rather than pasting a template — meta holds the same
+     strings, and reality disagrees with them often enough that the manifest, not
+     the code, is where an exception belongs.
+
+     The thumbnail is local (thumbs/, 240x158, a 2x copy of PhET's 600x394
+     screenshot) so the route paints with no network at all. The remote 600 is the
+     upgrade path for Stage 2's expanded card, where the picture gets big enough
+     that 240 would show. */
+  var PHET = 'https://phet.colorado.edu/sims/';
+  function assets(sim) {
+    var p = sim.phet || {};
+    if (p.kind === 'unpublished') return null;
+    var legacy = p.kind === 'legacy';
+    var project = p.project || sim.slug, name = p.sim || sim.slug;
+    return {
+      thumb: 'thumbs/' + sim.slug + '.png',
+      thumbFull: legacy ? PHET + project + '/' + name + '-600.png'
+        : PHET + 'html/' + project + '/latest/' + name + '-600.png',
+      /* A CheerpJ build is per *project*, not per sim: one page loads the whole
+         Java project and picks a sim out of it with ?simulation=. Three of ours
+         come out of nuclear-physics that way. */
+      run: legacy ? PHET + 'cheerpj/' + project + '/latest/' + project + '.html?simulation=' + name
+        : PHET + 'html/' + project + '/latest/' + name + '_en.html'
+    };
+  }
+
+  /* A slot is the sim's own screenshot, at the size PhET ships its icon in, with
+     the labels on top of it rather than instead of it. The middle of the box stays
+     clear on purpose — the picture is the identification now, and the caption is
+     there for the pairs that look alike. Press t to drop the captions and read the
+     route as pictures. */
   function simBox(sim, variants) {
     var color = TOPIC_COLOR[sim.topic] || '#94a3b8';
-    var box = el('div', 'slot', 'border-left-color:' + color + ';');
-    box.appendChild(el('div', 'slot-name', null, sim.name));
-    // variants sit under the name; the meta row is pinned to the bottom edge, so
-    // everything stays inside the 120x80 the real thumbnail will occupy
+    var a = assets(sim);
+    var box = el('div', 'slot' + (a ? '' : ' slot-bare'), 'border-left-color:' + color + ';');
+    box.title = sim.name + '  ·  ' + sim.slug;
+
+    if (a) {
+      var img = el('img', 'slot-thumb');
+      img.src = a.thumb;
+      img.alt = '';
+      /* Not lazy. The whole set is 2.2 MB local and the browser cannot judge
+         visibility here anyway — a distant scene is a transformed, scaled-down
+         layer that never intersects the viewport in the way an intersection test
+         expects, so lazy either loads everything at boot regardless or pops a slot
+         in halfway through a move. Load it up front and be done. */
+      img.decoding = 'async';
+      // a missing local file falls back to the CDN rather than leaving a hole
+      img.onerror = function () { if (img.src !== a.thumbFull) img.src = a.thumbFull; };
+      box.appendChild(img);
+    }
+
+    // corner badges ride above the picture, clear of the caption along the bottom
     if (variants.length) {
       var vars = el('div', 'slot-vars');
       variants.forEach(function (v) {
@@ -305,14 +359,16 @@
       });
       box.appendChild(vars);
     }
-    var meta = el('div', 'slot-meta');
-    meta.appendChild(el('span', 'dot', 'background:' + color + ';'));
+    if (sim.idleMotion) box.appendChild(el('span', 'idle', null, 'idle'));
+    if (!a) box.appendChild(el('span', 'idle nobuild', null, 'no build'));
+
+    var cap = el('div', 'slot-cap');
+    cap.appendChild(el('span', 'dot', 'background:' + color + ';'));
     (sim.also || []).forEach(function (t) {
-      meta.appendChild(el('span', 'dot dot-sec', 'background:' + (TOPIC_COLOR[t] || '#64748b') + ';'));
+      cap.appendChild(el('span', 'dot dot-sec', 'background:' + (TOPIC_COLOR[t] || '#64748b') + ';'));
     });
-    if (sim.idleMotion) meta.appendChild(el('span', 'idle', null, 'idle'));
-    meta.appendChild(el('span', 'slug', null, sim.slug));
-    box.appendChild(meta);
+    cap.appendChild(el('span', 'slot-name', null, sim.name));
+    box.appendChild(cap);
     return box;
   }
 
@@ -1134,6 +1190,7 @@
       else if (k === 'g') { document.body.classList.toggle('show-grid'); }
       else if (k === 'l') { document.body.classList.toggle('hide-legend'); }
       else if (k === 'h') { document.body.classList.toggle('hide-hud'); }
+      else if (k === 't') { document.body.classList.toggle('bare-slots'); }
     });
 
     var drag = null;

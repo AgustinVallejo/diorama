@@ -52,6 +52,7 @@ the Flatirons and climb into orbit. Both are hand-animated, both come late (Stag
 | `route-data.js` | Generated. Don't hand-edit. |
 | `energy skatepark/` | PhET skater sprites, 180x242 PNGs, consistently registered (head centre at about 49%/23% of the frame). The grey-box uses these for the beach character and the city crowd. |
 | `soccer common/` | PhET kicker sprites, SVG. Standing people; used in the beach and city crowds alongside the skaters. |
+| `thumbs/` | Generated. 87 sim screenshots, 240x158 PNG, 2.2 MB total — a 2x copy of PhET's 600x394. One per published slug. Regenerate by re-running the download in **Thumbnails** below. |
 
 The `_png.ts` / `_svg.ts` sidecar modules that shipped with both asset folders have
 been deleted (311 files). They are PhET's base64 build artefacts and nothing here
@@ -152,6 +153,75 @@ Greenhouse Effect moved up to Orbit to sit with the other planet-scale sims.
 If it ever starts feeling like a stall, the fix is to shorten the climb or fold it
 into the passage — not to park a sim there.
 
+## Thumbnails
+
+Every slot draws the sim's own screenshot. The picture is the identification; the
+caption along the bottom is for the pairs that look alike, and `t` drops the
+captions so you can read the route as pictures.
+
+**The template in `meta` was wrong.** `{slug}-screenshot.png` 404s on every sim on
+PhET's CDN — it was a guess and nothing had ever fetched it. The real names are
+`{slug}-600.png` (600x394, the screenshot with the sim's nav bar along the bottom)
+and `{slug}-128.png` (128x84, the same picture as an icon). Both are
+`Access-Control-Allow-Origin: *`. `urlTemplatesVerified` is now true — not
+spot-checked but exhaustive: all 87 published sims were fetched, screenshot and
+run URL both, and all 87 of each came back 200.
+
+**A slug here is a PhET repository name, not a published sim name.** That is what
+`original-list.txt` holds, and for 79 of the 90 the two happen to coincide. Eleven
+do not, and they carry a `phet` object in the manifest:
+
+- **Eight legacy Java sims** live at `/sims/{project}/{sim}-600.png` — no `html/`,
+  no `latest/` — and the project can bundle several sims. `nuclear-physics` holds
+  three of ours. Four also renamed on publication: `radioactive-dating` →
+  `radioactive-dating-game`, `photoelectric-effect` → `photoelectric`,
+  `quantum-bound-states` → `bound-states`, `eating-exercise-and-energy` →
+  `eating-and-exercise`. They run under CheerpJ, and its build is per
+  *project*, not per sim: one page loads the whole Java project and picks a sim out
+  of it with `?simulation=`, so all three nuclear-physics sims share a URL that
+  differs only in the query. Expect a slow cold start, and probably a different
+  affordance from an HTML sim.
+- **Three repositories PhET never published a build of**: `xray-diffraction`,
+  `optics-lab`, `circuit-construction-kit-black-box-study`. No screenshot, no
+  runnable URL. They keep the grey box and wear a `no build` badge. Decide later
+  whether they stay on the route at all — the black-box study is only a variant
+  chip, but the other two hold real slots at the Shell and the Lighthouse.
+
+Resolve through `assets(sim)` in `route-app.js`, never by pasting a template.
+Anything that turns out to be exceptional belongs in the manifest next to the sim,
+not in a branch in the code.
+
+The authority on all of this is PhET's own metadata service, which is worth
+re-querying if a slug ever stops resolving:
+
+    https://phet.colorado.edu/services/metadata/1.3/simulations?format=json&summary&locale=en
+
+It lists every project with its sims, and `common.html` / `common.legacy` hold the
+canonical URL templates.
+
+### Why the pictures are local, and knocked back
+
+`thumbs/` holds all 87 at 240x158 so the route paints with no network, per the
+hosted-iframes decision. 240 is 2x the 120x80 slot: 128 is soft on a retina panel
+and 600 is 74 MB of decoded bitmap across 78 slots, which is real cost against a
+camera that has to hold frame rate. They load eagerly — the set is 2.2 MB, and
+`loading="lazy"` cannot judge a scene that is transformed and scaled down, so it
+either loads everything anyway or pops a slot in halfway through a move.
+
+Two things about how they sit in the scene, both learned by looking:
+
+- **Every thumbnail is dimmed** (`saturate(.86) brightness(.82)`). PhET screenshots
+  are lit for a white page. Undimmed, 78 bright rectangles read as the subject and
+  the landscape they are placed in reads as background — which is backwards.
+- **The slot frame is two rings, dark inside light.** One hairline can only hold an
+  edge against one kind of background and these boxes cross a whole day: a white
+  border vanishes into the noon sky over the playground, a dark one vanishes into
+  the void around the nucleus.
+
+Frame rate with 78 images in play has **not** been measured in a real window — it
+was checked in a hidden preview pane, where `requestAnimationFrame` is frozen and
+any number would have been a lie. Measure it before trusting it.
+
 ## Two axes
 
 **Scale** is the vertical axis and it *is* the route order. **Topic** is not spatial —
@@ -204,19 +274,20 @@ Also: set `allow` restrictively or several sims will chirp at once.
 
 ## Stages
 
-- **0 — Manifest.** ✅ Done. One task remains: **verify the two URL templates in
-  `meta` against 3–4 slugs including a hyphenated one**, then set `urlTemplatesVerified`.
-  Everything in Stage 2 assumes them.
+- **0 — Manifest.** ✅ Done, templates verified — see **Thumbnails** below.
 - **1 — Grey-box route.** ← *you are here, and it traverses.* Geometry for landmarks,
   labeled boxes for sim slots at real sim-icon size. Discrete camera stops, eased
   transitions, arrows / scroll / drag / dot-strip all work. Built on top of that:
   three parallax depth layers per scene (`--pf` / `--pxu` / `--pyu`, see the CSS), a
   single light source that travels the route so the day arc runs alongside the scale
   arc (morning at the beach → sunset behind the Flatirons → stars by orbit), a star
-  field that fades in over the ascent, and real PhET character sprites at the beach
-  and through the city. Remaining: the pacing work below.
-- **2 — Sim launch.** Facade → click → expand → iframe with a parent-DOM top bar → back
-  restores exact camera position. Snap camera to scale 1 during expansion.
+  field that fades in over the ascent, real PhET character sprites at the beach
+  and through the city, and **each slot showing its own sim's screenshot**.
+  Remaining: the pacing work below.
+- **2 — Sim launch.** The facade half is done — a slot *is* the screenshot now, and
+  `assets(sim)` in `route-app.js` already returns the run URL to point an iframe at.
+  Remaining: click → expand → iframe with a parent-DOM top bar → back restores exact
+  camera position. Snap camera to scale 1 during expansion.
 - **3 — Topic overlay.** Build **waves-light first** (16 sims across 5 scales — it
   exercises the whole route). Gravity second.
 - **4 — Art.** 4a: the beach alone, full treatment, to get a real per-scene cost. 4b: city,
