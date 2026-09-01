@@ -114,8 +114,9 @@ every scale — a scene at exponent E measures `2^E` world units per one of its 
   copies of one position, drifting apart in silence.
 
 A landmark can also name a **`pace`**, which stretches the settle time of the edge
-*arriving* at it. The beach is 5.0 and the atmosphere 4.0 — the two edges that are
-the point of the route rather than a way of getting between stops. The spring is
+*arriving* at it. The beach is 5.0, the atmosphere 4.0 and Orbit 4.0 — the three
+edges that are the point of the route rather than a way of getting between
+stops. The spring is
 linear, so settle time does not depend on distance and every edge otherwise takes
 the same time; stiffness scales as 1/pace², damping as 1/pace, so the motion keeps
 its shape and only its clock changes. The edge is named by the landmark you arrive
@@ -171,9 +172,14 @@ Two corollaries, both load-bearing:
   drifted through what is supposed to be the void around the nucleus. Full strength
   mid-transition, absent on arrival.
 
-Passages also fade the scene's own labels out from under the banner, via a single
-`--passage` variable on `<body>` driven by the banner's alpha. The one moment the
-sim names are irrelevant is the one moment they were covering the picture.
+**A passage does not announce itself.** There was a banner across the middle of
+the frame naming it, and it was the one thing guaranteed to be in the way at the
+one moment the picture is supposed to carry itself. What is left is the effect:
+a tint over the frame, and a single `--passage` variable on `<body>` that fades
+the scene's own labels out while it lasts. The moment the sim names are
+irrelevant is the moment they would be covering the thing you came for. Both
+passages still carry their notes in the manifest, where they are notes to
+whoever is editing it.
 
 ## The abstract scales
 
@@ -245,6 +251,12 @@ that were got wrong once and are worth not getting wrong again:
   can relax.
 - **Overhead cable is a bottom border with a tall elliptical radius.** Cheapest
   honest catenary there is; a straight run between poles reads as a fence rail.
+- **In the lab, people are drawn before the benches.** The other way round,
+  anyone standing further down the corridor than a bench came out on top of it —
+  feet at the bench's own height, in front of its legs, which reads as standing
+  on the table. Nothing in that scene parallaxes, so the only depth cue is size
+  and how far down the floor a body stands, and that cue only works if the paint
+  order agrees with it. They stand in the gaps the doors and benches leave.
 - **The lab is a 2x2 block of zones**, one row of sims each — three of them now
   that gases has gone to Molecular Scale, so the fourth cell is empty. Stacked in
   rows they read as one long list and the corridor behind them disappeared. At a
@@ -331,6 +343,44 @@ where having almost nothing in the frame *is* the content. One sim does not chan
 that — it is still a beat inside a two-part move. There is now no empty stop on
 the route at all.
 
+## Launching a sim
+
+**Every slot is an `<a target="_blank">` to the sim on phet.colorado.edu.** Click
+one and it opens in its own tab.
+
+This retires the whole in-page launch design, and with it the modal-trap section
+that used to be the scariest thing in this file. Nothing cross-origin is ever
+embedded in the route, so there is no live iframe to get trapped inside, no
+gutter of parent chrome to maintain around it, and no camera state to save and
+restore. It also costs nothing to build and gets middle-click, ctrl-click and
+copy-link-address for free, which a div with a click handler would not.
+
+Two things it does need:
+
+- `rel="noopener noreferrer"`, because `target="_blank"` otherwise hands the sim
+  a live `window.opener` back into this page.
+- A way to tell a click from a drag. The viewport listens for pointer gestures to
+  travel the route, and a drag that happens to start on a slot must not also open
+  a tab when it ends. `dragged` is set once a gesture moves more than 4px, and the
+  slot's click handler calls `preventDefault` when it is set. Four pixels because
+  a real click is never perfectly still. `dragged` is cleared on the next
+  pointerdown, not on pointerup — the click the browser fires at the end of a drag
+  arrives *after* pointerup, and clearing it there would let every drag that ended
+  on a slot open a tab.
+- **Pointer capture is taken late, and this is load-bearing.** The viewport used to
+  call `setPointerCapture` in its pointerdown handler. While an element holds
+  pointer capture the browser retargets the compatibility mouse events to it —
+  `click` included — so every click on a sim slot was being delivered to the
+  viewport instead of to the link, and the link simply never fired. Hover still
+  worked, because that is a pointer event and not a compatibility one, which is
+  exactly what makes this look like a styling problem rather than an input one.
+  Capture is now taken on the first pointermove that clears the slop and never on
+  a plain press. It still does its job: it only matters once a gesture is a drag,
+  and by then the slop is already exceeded.
+
+If an in-page launch is ever wanted after all, the modal-trap rules still apply
+and are worth reading in the git history of this file before starting.
+
 ## Thumbnails
 
 Every slot draws the sim's own screenshot. The picture is the identification; the
@@ -414,6 +464,22 @@ a note needs to reach the viewer, it needs to be in the picture.
 A landmark holding exactly one sim puts it in the middle of the frame rather than
 out on the slot ring. A lone box on an ellipse reads as the first of a set that
 failed to load.
+
+The passage banner is gone entirely — see **The camera** above.
+
+## The opening
+
+A card over the first stop: the title, one line of what this is, and a Begin
+button. It sits over the route rather than over a blank, so the nucleus is
+already turning behind the title, and the HUD is held at zero until it is
+dismissed so there is nothing but the picture and the words.
+
+Anything dismisses it — the button, a click anywhere on it, a key, a scroll —
+and **whatever did so is spent on the dismissal rather than also travelling**.
+Without that, the first flick of a trackpad lands you two stops in before you
+have finished reading the subtitle. `dismissOpening()` returns whether it did
+anything, so the wheel and keydown handlers can bail on the gesture that opened
+the route.
 
 ## Two axes
 

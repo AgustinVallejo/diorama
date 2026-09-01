@@ -230,6 +230,7 @@
   var R, stops, exps, zis, W, scenes = [], scaleById = {}, sectionOf = {}, passages = [];
   var simCount = {};
   var progress = 0, targetP = 0, vel = 0, lastT = 0, snapTimer = null, settled = false;
+  var dragged = false;                     // the last pointer gesture travelled
   var world, viewport, fit = 1;
   var humanFirst = 0, humanLast = 0;
 
@@ -385,8 +386,18 @@
   function simBox(sim, variants) {
     var color = TOPIC_COLOR[sim.topic] || '#94a3b8';
     var a = assets(sim);
-    var box = el('div', 'slot', 'border-left-color:' + color + ';');
-    box.title = sim.name + '  ·  ' + sim.slug;
+    /* An anchor, not a div with a click handler. The sim opens in its own tab,
+       which is also the whole answer to the modal-trap problem an in-page iframe
+       would have had: nothing cross-origin ever gets between you and the route.
+       Being a real link means middle-click, ctrl-click, and copy-link-address all
+       work without any of it being written here. */
+    var box = el('a', 'slot', 'border-left-color:' + color + ';');
+    box.href = a.run;
+    box.target = '_blank';
+    box.rel = 'noopener noreferrer';
+    box.title = sim.name + '  ·  ' + sim.slug + '  ·  opens at phet.colorado.edu';
+    // a drag that happens to start on a slot is travel, not a click
+    box.addEventListener('click', function (e) { if (dragged) e.preventDefault(); });
 
     var img = el('img', 'slot-thumb');
     img.src = a.thumb;
@@ -773,7 +784,7 @@
       return;
     }
     groups.forEach(function (g, i) {
-      // offset off top-dead-centre: that band belongs to the plate and the banner
+      // offset off top-dead-centre: that band belongs to the plate
       var ang = -Math.PI / 2 + 0.55 + (i / Math.max(n, 1)) * Math.PI * 2;
       var b = simBox(g.sim, g.variants);
       b.style.left = (SCENE_W / 2 + Math.cos(ang) * SLOT_RX - SLOT_W / 2) + 'px';
@@ -1100,6 +1111,18 @@
        of bunching at the left end and leaving a third of the wall bare, which is
        what happened the moment the gases zone left for Molecular Scale. */
     var pitch = clamp((SCENE_W - 140) / Math.max((lm.zones || []).length, 1), 290, 380);
+    /* People first, benches after. Drawn the other way round, anyone standing
+       further down the corridor than a bench came out on top of it — feet at the
+       bench's own height, in front of its legs, which reads as standing on the
+       table. Nothing in here parallaxes, so the only depth cue is size and how
+       far down the floor a body stands, and that cue only works if the paint
+       order agrees with it. They stand in the gaps the benches and doors leave:
+       roughly x 340..410, 700..765 and past 1050 at this pitch. */
+    var gaps = [[366, 26, 112], [736, 74, 152], [1112, 14, 100], [118, 46, 128]];
+    gaps.forEach(function (p, k) {
+      L.mid.appendChild(character('labfolk', k, p[0], GROUND_Y + p[1], p[2],
+        { kind: 'kicker' }));
+    });
     (lm.zones || []).forEach(function (z, zi) {
       var x = 60 + zi * pitch;
       /* 74 rather than 100. The 2x2 block of zones above needs the wall clear
@@ -1114,15 +1137,6 @@
       m(bx + 6, by + 7, 6, 30, 'solid'); m(bx + 138, by + 7, 6, 30, 'solid');
       labKit(L.mid, z, bx, by);
     });
-    /* People in the corridor. No parallax layers in here, so depth comes from
-       size and how far down the floor they stand. */
-    /* In the gaps between the benches — the benches are the point of the room.
-       Depth comes from size and how far down the floor each one stands, so the
-       middle one is nearer rather than there being a fourth body on top of a third. */
-    [[402, GROUND_Y + 6, 104], [700, GROUND_Y + 62, 152], [992, GROUND_Y + 4, 100]]
-      .forEach(function (p, k) {
-        L.mid.appendChild(character('labfolk', k, p[0], p[1], p[2], { kind: 'kicker' }));
-      });
     m(-30, GROUND_Y + 6, SCENE_W + 60, 90, 'thin', 'opacity:.06;');   // floor sheen
     m(-34, GROUND_Y - 560, 58, 640, 'interior', 'opacity:1;');        // jambs frame the corridor
     m(1206, GROUND_Y - 560, 58, 640, 'interior', 'opacity:1;');
@@ -1325,9 +1339,6 @@
     hud.section = document.getElementById('h-section');
     hud.scale = document.getElementById('h-scale');
     hud.count = document.getElementById('h-count');
-    hud.banner = document.getElementById('banner');
-    hud.bannerTitle = document.getElementById('banner-title');
-    hud.bannerNote = document.getElementById('banner-note');
     hud.tint = document.getElementById('passage-tint');
     hud.sky = document.getElementById('sky');
     hud.stars = document.getElementById('stars');
@@ -1425,14 +1436,14 @@
         if (!best || alpha > best.alpha) best = { pg: pg, alpha: alpha };
       }
     });
+    /* No banner: a passage does not announce itself. What survives is the tint
+       and --passage, which fades the scene's own labels out underneath it — the
+       one moment the sim names are irrelevant is the one moment they would be
+       covering the picture. */
     if (best) {
-      hud.banner.style.opacity = best.alpha;
       document.body.style.setProperty('--passage', best.alpha.toFixed(3));
-      hud.bannerTitle.textContent = 'passage — ' + best.pg.p.label;
-      hud.bannerNote.textContent = best.pg.p.note;
       hud.tint.style.opacity = best.alpha * 0.32;
     } else {
-      hud.banner.style.opacity = 0;
       hud.tint.style.opacity = 0;
       document.body.style.setProperty('--passage', '0');
     }
@@ -1611,9 +1622,28 @@
     }, 170);
   }
 
+  /* The opening card. It sits over the first stop rather than over nothing, so
+     the nucleus is already turning behind the title. Anything at all dismisses
+     it — the button, a click, a key, a scroll — and whatever did so is spent on
+     the dismissal rather than also travelling the route, or the first flick of a
+     trackpad would land you two stops in before you had read the subtitle. */
+  var opening = true;
+  function dismissOpening() {
+    if (!opening) return false;
+    opening = false;
+    document.body.classList.remove('opening');
+    var card = document.getElementById('opening');
+    if (card) setTimeout(function () { card.style.display = 'none'; }, 700);
+    return true;
+  }
+
   function attachInput() {
+    var card = document.getElementById('opening');
+    if (card) card.addEventListener('click', function () { dismissOpening(); });
+
     window.addEventListener('wheel', function (e) {
       e.preventDefault();
+      if (dismissOpening()) return;
       var d = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
       targetP = clamp(targetP + d * 0.0022, 0, stops.length - 1);
       scheduleSnap();
@@ -1621,6 +1651,7 @@
 
     window.addEventListener('keydown', function (e) {
       var k = e.key;
+      if (dismissOpening()) { e.preventDefault(); return; }
       if (k === 'ArrowDown' || k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'j') {
         step(1); e.preventDefault();
       } else if (k === 'ArrowUp' || k === 'ArrowLeft' || k === 'PageUp' || k === 'k') {
@@ -1634,12 +1665,29 @@
     });
 
     var drag = null;
+    /* Capture is taken LATE, on the first pointermove that clears the slop, and
+       never on a plain press. While an element holds pointer capture the browser
+       retargets the compatibility mouse events to it — including `click` — so
+       capturing here on pointerdown meant every click on a sim slot was delivered
+       to the viewport instead of to the link, and the link silently never fired.
+       Hover still worked, which is what made it look like a styling problem.
+
+       Taken late it still does its job: it only matters once a gesture is a drag,
+       and by then the slop is already exceeded. */
     viewport.addEventListener('pointerdown', function (e) {
-      drag = { y: e.clientY, p: targetP };
-      viewport.setPointerCapture(e.pointerId);
+      drag = { y: e.clientY, p: targetP, id: e.pointerId };
+      dragged = false;
     });
     viewport.addEventListener('pointermove', function (e) {
       if (!drag) return;
+      // 4px of slop: a click on a slot is never perfectly still
+      if (!dragged && Math.abs(e.clientY - drag.y) > 4) {
+        dragged = true;
+        // a pointer that has already gone away throws; losing the capture is a
+        // better outcome than losing the rest of the handler
+        try { viewport.setPointerCapture(drag.id); } catch (err) { /* gone */ }
+      }
+      if (!dragged) return;
       targetP = clamp(drag.p + (drag.y - e.clientY) / 240, 0, stops.length - 1);
     });
     viewport.addEventListener('pointerup', function () {

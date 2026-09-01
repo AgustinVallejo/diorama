@@ -3,7 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PhET Route</title>
+<title>PhET Diorama</title>
+<!-- Inlined as a data URI: the route is meant to open from a file:// path with
+     nothing beside it but its own assets, and a favicon that 404s is worse than
+     none at all. -->
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI2VhZjFmOSIgZD0iTTIyLjYgMS40IDEuNCAxMC43bDcuOSAzeiIvPjxwYXRoIGZpbGw9IiM1Yjg3YjYiIGQ9Ik0yMi42IDEuNCA5LjMgMTMuN2wyLjMgOC45eiIvPjwvc3ZnPg==">
 <style>
   :root {
     --chip: rgba(9,14,24,.74);
@@ -354,7 +358,8 @@
      one kind of background, and these boxes cross a whole day: a white one
      disappears into the noon sky over the playground, a dark one disappears into
      the void around the nucleus. Together they read on both. */
-  .slot { position: absolute; width: 144px; height: 96px;
+  .slot { position: absolute; display: block; text-decoration: none; cursor: pointer;
+    width: 144px; height: 96px;
     border-radius: 5px; overflow: hidden;
     background: rgba(8,12,20,.76);
     border-left: 3px solid;
@@ -367,7 +372,15 @@
      are placed in reads as background, which is backwards. */
   .slot-thumb { position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; display: block;
-    filter: saturate(.86) brightness(.82) contrast(1.04); }
+    filter: saturate(.86) brightness(.82) contrast(1.04);
+    transition: filter .14s ease; }
+  /* The knock-back comes off on hover: the sim you are pointing at is the one you
+     are about to open, and it should look lit rather than dimmed like its
+     neighbours. */
+  .slot:hover .slot-thumb { filter: saturate(1) brightness(1.04) contrast(1); }
+  .slot:hover { box-shadow: inset 0 0 0 1px rgba(0,0,0,.5), 0 0 0 2px rgba(255,255,255,.6),
+    0 5px 20px rgba(0,0,0,.5); }
+  .slot:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 2px; }
 
   /* Caption band. It sits on its own gradient rather than dimming the whole
      picture, so the top two thirds of the screenshot stay clean. */
@@ -402,8 +415,11 @@
     opacity: calc(var(--lbl) * .8 * (1 - var(--passage))); }
 
   /* ------------------------------------------------------------------- hud */
-  #hud { position: fixed; inset: 0; z-index: 8; pointer-events: none; color: var(--ink); }
+  #hud { position: fixed; inset: 0; z-index: 8; pointer-events: none; color: var(--ink);
+    transition: opacity .7s ease; }
   body.hide-hud #hud, body.hide-hud #scrims { opacity: 0; }
+  /* Nothing but the picture behind the title until the route is asked for. */
+  body.opening #hud, body.opening #scrims { opacity: 0; }
   #scrims { position: fixed; inset: 0; z-index: 7; pointer-events: none; }
   #scrims div { position: absolute; left: 0; right: 0; height: 130px; }
   #scrim-t { top: 0; height: 110px; background: linear-gradient(180deg, rgba(0,0,0,.26), transparent); }
@@ -468,18 +484,32 @@
 
   /* Below the readout, whatever height the readout happens to be. The scene's own
      labels fade out under it (see --passage), so this never lands on top of text. */
-  #banner { position: absolute; left: 50%; top: 190px; transform: translateX(-50%);
-    text-align: center; opacity: 0; width: min(620px, 74vw); color: #f2f6fb;
-    padding: 14px 22px 16px; border-radius: 12px; background: rgba(6,9,16,.62);
-    border: 1px solid rgba(255,255,255,.12); }
-  #banner-title { font: 11px var(--mono); text-transform: uppercase; letter-spacing: .3em;
-    opacity: .85; }
-  #banner-note { margin-top: 10px; font-size: 15px; line-height: 1.5;
-    text-shadow: 0 2px 20px rgba(0,0,0,.85); }
 
+  /* The opening. It sits over the first stop rather than over a blank, so the
+     nucleus is already turning behind the title. Anything dismisses it. */
+  #opening { position: fixed; inset: 0; z-index: 20; display: flex;
+    align-items: center; justify-content: center; text-align: center;
+    padding: 24px; cursor: pointer; opacity: 0; pointer-events: none;
+    transition: opacity .7s ease;
+    background: radial-gradient(70% 60% at 50% 46%, rgba(6,9,16,.72), rgba(3,5,9,.93) 78%); }
+  body.opening #opening { opacity: 1; pointer-events: auto; }
+  #opening-inner { max-width: 560px; }
+  #opening h1 { margin: 0; font-size: clamp(30px, 6vw, 52px); font-weight: 650;
+    letter-spacing: -.02em; color: #f4f8fd;
+    text-shadow: 0 4px 40px rgba(0,0,0,.8); }
+  #opening p { margin: 14px auto 0; font-size: clamp(14px, 2.2vw, 17px); line-height: 1.5;
+    color: var(--ink-dim); max-width: 30em; }
+  #opening button { margin-top: 30px; font: 11px var(--mono); letter-spacing: .22em;
+    text-transform: uppercase; color: var(--ink); cursor: pointer;
+    padding: 11px 26px 12px; border-radius: 999px;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.34);
+    transition: background .16s ease, border-color .16s ease; }
+  #opening button:hover { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.6); }
+  #opening-hint { margin-top: 20px; font: 9.5px/1.7 var(--mono); letter-spacing: .1em;
+    color: rgba(232,238,246,.42); }
 </style>
 </head>
-<body>
+<body class="opening">
   <div id="sky"></div>
   <div id="stars"></div>
   <div id="celestial"></div>
@@ -500,15 +530,20 @@
     <div id="legend"></div>
     <div id="dots"></div>
 
-    <div id="banner">
-      <div id="banner-title"></div>
-      <div id="banner-note"></div>
-    </div>
-
     <div id="hints">
       scroll / drag to travel<br>
       <kbd>↑</kbd><kbd>↓</kbd> stop to stop · <kbd>Home</kbd><kbd>End</kbd> ends<br>
+      click a sim to open it at phet.colorado.edu<br>
       <kbd>g</kbd> grid · <kbd>l</kbd> legend · <kbd>t</kbd> captions · <kbd>h</kbd> hide hud
+    </div>
+  </div>
+
+  <div id="opening">
+    <div id="opening-inner">
+      <h1>PhET Diorama</h1>
+      <p>A journey through the universe of PhET physical simulations</p>
+      <button type="button">Begin</button>
+      <div id="opening-hint">scroll or drag to travel · click a sim to open it</div>
     </div>
   </div>
 
