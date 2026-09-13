@@ -420,7 +420,6 @@
       });
       box.appendChild(vars);
     }
-    if (sim.idleMotion) box.appendChild(el('span', 'idle', null, 'idle'));
 
     var cap = el('div', 'slot-cap');
     cap.appendChild(el('span', 'dot', 'background:' + color + ';'));
