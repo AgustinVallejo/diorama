@@ -37,7 +37,7 @@
      235x322 board with air above the head, which is why cx is nowhere near .5. */
   var CHAR_KIND = {
     skater: {
-      dir: 'energy skatepark/', ext: '.png',
+      dir: 'assets/sprites/skater/', ext: '.png',
       aspect: 180 / 242, cx: 0.50, feet: 1.00, body: 1.00, head: 0.23,
       poses: ['Left', 'Right'],
       regions: [['africa', [1, 2, 3, 4, 5, 6]], ['asia', [1, 2, 3, 4, 5, 6]],
@@ -46,7 +46,7 @@
       name: function (region, n) { return region + 'Skater' + n; }
     },
     kicker: {
-      dir: 'soccer common/', ext: '.svg',
+      dir: 'assets/sprites/kicker/', ext: '.svg',
       aspect: 235 / 322, cx: 0.271, feet: 0.958, body: 0.851, head: 0.18,
       poses: ['Standing', 'Standing', 'PoisedToKick'],
       regions: [['africa', [1, 2, 3, 4, 7, 11, 13, 14, 15]],
@@ -357,7 +357,7 @@
      published are excluded in the manifest rather than placed and drawn as empty
      boxes, so there is no missing-build case to render.
 
-     The thumbnail is local (thumbs/, 240x158, a 2x copy of PhET's 600x394
+     The thumbnail is local (assets/thumbs/, 240x158, a 2x copy of PhET's 600x394
      screenshot) so the route paints with no network at all. The remote 600 is the
      upgrade path for an expanded sim card, where the picture gets big enough
      that 240 would show. */
@@ -367,7 +367,7 @@
     var legacy = p.kind === 'legacy';
     var project = p.project || sim.slug, name = p.sim || sim.slug;
     return {
-      thumb: 'thumbs/' + sim.slug + '.png',
+      thumb: 'assets/thumbs/' + sim.slug + '.png',
       thumbFull: legacy ? PHET + project + '/' + name + '-600.png'
         : PHET + 'html/' + project + '/latest/' + name + '-600.png',
       /* A CheerpJ build is per *project*, not per sim: one page loads the whole

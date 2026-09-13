@@ -56,9 +56,9 @@ the Flatirons and climb into orbit. Both are hand-animated, both come late (Stag
 | `route-app.js` | Camera, scene builders, sky/light tables, HUD. One `BUILD.<landmark>` function per surface landmark. |
 | `build-data.js` | `node build-data.js` — regenerates `route-data.js` from `route.json` so the page works over `file://`. **Run it after every manifest edit** or the fallback goes stale. |
 | `route-data.js` | Generated. Don't hand-edit. |
-| `energy skatepark/` | PhET skater sprites, 180x242 PNGs, consistently registered (head centre at about 49%/23% of the frame). Used for the beach character and the crowds. |
-| `soccer common/` | PhET kicker sprites, SVG. Standing people; used in the beach and city crowds alongside the skaters. |
-| `thumbs/` | Generated. 87 sim screenshots, 240x158 PNG, 2.2 MB total — a 2x copy of PhET's 600x394. One per published slug. Regenerate by re-running the download in **Thumbnails** below. |
+| `assets/sprites/skater/` | PhET skater sprites, 180x242 PNGs, consistently registered (head centre at about 49%/23% of the frame). Used for the beach character and the crowds. |
+| `assets/sprites/kicker/` | PhET kicker sprites, SVG. Standing people; used in the beach and city crowds alongside the skaters. |
+| `assets/thumbs/` | Generated. 87 sim screenshots, 240x158 PNG, 2.2 MB total — a 2x copy of PhET's 600x394. One per published slug. Regenerate by re-running the download in **Thumbnails** below. |
 
 The `_png.ts` / `_svg.ts` sidecar modules that shipped with both asset folders have
 been deleted (311 files). They are PhET's base64 build artefacts and nothing here
@@ -305,8 +305,8 @@ the scale on its own.
 Two PhET families, registered differently on their own canvases, so each carries its
 own numbers in `CHAR_KIND` (measured with `getBBox`, not guessed):
 
-- **skater** (`energy skatepark/`, PNG) fills its 180x242 canvas edge to edge.
-- **kicker** (`soccer common/`, SVG) stands in the *left half* of a 235x322 board
+- **skater** (`assets/sprites/skater/`, PNG) fills its 180x242 canvas edge to edge.
+- **kicker** (`assets/sprites/kicker/`, SVG) stands in the *left half* of a 235x322 board
   with air above the head — `cx` is 0.271, nowhere near centre.
 
 `character()` normalises both to a requested height so a person is a person
@@ -433,7 +433,7 @@ canonical URL templates.
 
 ### Why the pictures are local, and knocked back
 
-`thumbs/` holds all 87 at 240x158 so the route paints with no network, per the
+`assets/thumbs/` holds all 87 at 240x158 so the route paints with no network, per the
 hosted-iframes decision. 240 is 2x the 120x80 slot: 128 is soft on a retina panel
 and 600 is 74 MB of decoded bitmap across 78 slots, which is real cost against a
 camera that has to hold frame rate. They load eagerly — the set is 2.2 MB, and
