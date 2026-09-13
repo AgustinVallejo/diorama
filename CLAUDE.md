@@ -16,10 +16,10 @@ node validate.js     # manifest integrity + coverage + density report
 node build-data.js   # regenerate route-data.js from route.json
 ```
 
-Serve rather than opening `index.html` over `file://` — `.claude/launch.json` has
-an `http-server` config on port 5177. The `file://` path works via the generated
-`route-data.js` fallback, but the `fetch` path is the one Stage 2 will use, so
-develop against it.
+Serve rather than opening `index.html` over `file://` — `npx http-server -p 5177
+-c-1` is what the git-ignored `.claude/launch.json` runs. The `file://` path works
+via the generated `route-data.js` fallback, but the `fetch` path is the one Stage 2
+will use, so develop against it.
 
 **After any `route.json` edit, run both, in this order.** `route-data.js` is
 generated and must never be hand-edited; if you skip the rebuild, the file://

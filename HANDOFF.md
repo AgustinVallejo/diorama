@@ -64,8 +64,9 @@ The `_png.ts` / `_svg.ts` sidecar modules that shipped with both asset folders h
 been deleted (311 files). They are PhET's base64 build artefacts and nothing here
 imports them; if you ever need one back, it is regenerable from the image.
 
-Serve it rather than opening the file directly — `.claude/launch.json` has an
-`http-server` config on port 5177. `file://` works via `route-data.js`, but the
+Serve it rather than opening the file directly — `npx http-server -p 5177 -c-1` does it.
+(`.claude/` is git-ignored, so its launch config does not travel with a clone.)
+`file://` works via `route-data.js`, but the
 fetch path is the one a live sim launch will use.
 
 Current state: all 143 accounted for. 87 placed (76 primary + 11 variants), 2 off-route
