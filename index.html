@@ -47,10 +47,6 @@
            --pxu: 0px; --pyu: 0px; }
   .scene-frame { position: absolute; inset: 0; border: 1px dashed rgba(255,255,255,.10);
                  border-radius: 6px; }
-  body.show-grid .scene-frame {
-    background-image: linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
-    background-size: 60px 60px; }
 
   /* Depth layers. --pf is (parallax factor - 1); --pxu / --pyu are the camera's
      offset expressed in this scene's own units, so pxu * pf lands the layer at
@@ -453,6 +449,8 @@
   #legend { position: absolute; right: 24px; top: 20px; display: flex; flex-direction: column;
     align-items: flex-end; gap: 3px; font: 9.5px var(--mono); text-transform: uppercase;
     letter-spacing: .1em; text-shadow: 0 1px 5px rgba(0,0,0,.8); }
+  /* Off until asked for: the route opens on a picture, and the topic tally is
+     a reading aid for someone already oriented. l brings it back. */
   body.hide-legend #legend { display: none; }
   #legend div { display: flex; align-items: center; gap: 6px; color: var(--ink-dim); }
   #legend .sw { order: 3; width: 7px; height: 7px; border-radius: 50%; }
@@ -505,7 +503,7 @@
     color: rgba(232,238,246,.42); }
 </style>
 </head>
-<body class="opening">
+<body class="opening hide-legend">
   <div id="sky"></div>
   <div id="stars"></div>
   <div id="celestial"></div>
@@ -530,7 +528,7 @@
       scroll / drag to travel<br>
       <kbd>↑</kbd><kbd>↓</kbd> stop to stop · <kbd>Home</kbd><kbd>End</kbd> ends<br>
       click a sim to open it at phet.colorado.edu<br>
-      <kbd>g</kbd> grid · <kbd>l</kbd> legend · <kbd>t</kbd> captions · <kbd>h</kbd> hide hud
+      <kbd>l</kbd> legend · <kbd>t</kbd> captions · <kbd>h</kbd> hide hud
     </div>
   </div>
 

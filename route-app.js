@@ -1657,7 +1657,6 @@
         step(-1); e.preventDefault();
       } else if (k === 'Home') { goTo(0); }
       else if (k === 'End') { goTo(stops.length - 1); }
-      else if (k === 'g') { document.body.classList.toggle('show-grid'); }
       else if (k === 'l') { document.body.classList.toggle('hide-legend'); }
       else if (k === 'h') { document.body.classList.toggle('hide-hud'); }
       else if (k === 't') { document.body.classList.toggle('bare-slots'); }
