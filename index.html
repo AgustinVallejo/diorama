@@ -491,8 +491,42 @@
     transition: opacity .7s ease;
     background: radial-gradient(70% 60% at 50% 46%, rgba(6,9,16,.72), rgba(3,5,9,.93) 78%); }
   #ending { cursor: default; }
-  body.opening #opening, body.ending #ending { opacity: 1; pointer-events: auto; }
+  body.opening #opening { opacity: 1; pointer-events: auto; }
+  /* The outro arrives slowly. The route has just ended and a card that snaps in
+     reads as an interruption rather than as an ending, so the ground fades
+     first, the line settles onto it, and the button arrives last -- by which
+     point the sentence has been readable for a second and a half. Only the way
+     IN is slow: leaving keeps the base .7s, or Start again would feel stuck. */
+  body.ending #ending { opacity: 1; pointer-events: auto; transition-duration: 2s; }
+  /* The message rises onto the darkened ground once that has settled. Staged on
+     #ending-inner rather than on the h1 and the button separately: the shared
+     button rule below sets a transition SHORTHAND, which resets the property
+     list and would silently drop a transition declared up here. The button gets
+     its late entrance from an animation instead, which nothing can reset, and
+     `backwards` holds it invisible through the delay. */
+  #ending-inner { opacity: 0; transform: translateY(12px);
+    transition: opacity .6s ease, transform .6s ease; }
+  body.ending #ending-inner { opacity: 1; transform: none;
+    transition-duration: 1.5s; transition-delay: .7s; }
+  body.ending #ending button { animation: outro-btn 1.1s ease 1.9s backwards; }
+  @keyframes outro-btn { from { opacity: 0; transform: translateY(10px); } }
+
+  /* Confetti in the seven topic colours, so what comes down at the end is the
+     route itself rather than generic celebration. Behind the text, hence the
+     z-index on the inner box. */
+  #confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  #confetti i { position: absolute; top: -8vh; width: 7px; height: 11px;
+    animation-name: confetti-fall; animation-timing-function: linear;
+    animation-iteration-count: infinite; }
+  @keyframes confetti-fall {
+    0%   { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); }
+    7%   { opacity: .85; }
+    90%  { opacity: .85; }
+    100% { opacity: 0; transform: translate3d(var(--dx), 116vh, 0) rotate(var(--spin)); } }
+  @media (prefers-reduced-motion: reduce) { #confetti { display: none; } }
+
   #opening-inner, #ending-inner { max-width: 560px; }
+  #ending-inner { position: relative; z-index: 1; max-width: 620px; }
   #opening h1, #ending h1 { margin: 0; font-size: clamp(30px, 6vw, 52px); font-weight: 650;
     letter-spacing: -.02em; color: #f4f8fd;
     text-shadow: 0 4px 40px rgba(0,0,0,.8); }
@@ -552,8 +586,9 @@
   </div>
 
   <div id="ending">
+    <div id="confetti"></div>
     <div id="ending-inner">
-      <h1>Thanks for 25 years of science education</h1>
+      <h1>Thanks PhET, for 25 years of science education around the world!!!</h1>
       <button type="button">Start again</button>
     </div>
   </div>

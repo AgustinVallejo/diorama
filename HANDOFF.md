@@ -68,7 +68,10 @@ The route is bracketed by two cards that share their styling. The opening sits o
 the first stop so the nucleus is already turning behind the title. The ending is
 reached by pushing past the last stop -- the only gesture there that can mean
 "done" -- and is closed only by its own button, which travels home behind the card
-before fading it off. Pushing past takes END_PUSH wheel pixels and only counts
+and then hands back to the opening, so Start again means the title card too. It
+arrives slowly and in three stages (ground, then message, then button) under
+confetti in the seven topic colours: the legend's seven, so the route is what
+comes down at the end. Pushing past takes END_PUSH wheel pixels and only counts
 END_GRACE ms after arrival, or a trackpad's momentum tail would roll the credits
 over a scene nobody got to look at.
 

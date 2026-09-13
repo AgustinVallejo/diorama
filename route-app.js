@@ -1670,18 +1670,49 @@
     if (endPush >= END_PUSH) showEnding();
   }
 
+  /* Confetti in the seven topic colours -- the legend's seven, so the route is
+     what comes down at the end. rnd() rather than Math.random, like everything
+     else here; the arrangement is fixed but each piece runs its own loop at its
+     own speed, so it never reads as a repeating pattern.
+
+     The negative animation-delay is the point of the whole thing: it starts
+     every piece part-way through its fall, so the card fades up onto confetti
+     already coming down instead of onto an empty sky that fills a beat later. */
+  var CONFETTI = 84;
+  function buildConfetti(host) {
+    var keys = Object.keys(TOPIC_COLOR);
+    for (var i = 0; i < CONFETTI; i++) {
+      var dur = 5.5 + rnd('confetti-dur', i) * 6.5;
+      host.appendChild(el('i', null,
+        'left:' + (rnd('confetti-x', i) * 100).toFixed(2) + '%;' +
+        'background:' + TOPIC_COLOR[keys[i % keys.length]] + ';' +
+        '--dx:' + ((rnd('confetti-dx', i) - 0.5) * 30).toFixed(1) + 'vw;' +
+        '--spin:' + Math.round(360 + rnd('confetti-spin', i) * 1080) + 'deg;' +
+        'animation-duration:' + dur.toFixed(2) + 's;' +
+        'animation-delay:' + (-rnd('confetti-t', i) * dur).toFixed(2) + 's;' +
+        // a third of them round, so it is not a shower of identical tickets
+        (rnd('confetti-shape', i) > 0.66 ? 'border-radius:50%;' : '')));
+    }
+  }
+
   function showEnding() {
     if (ending) return;
     ending = true;
     endPush = 0;
     var card = document.getElementById('ending');
     if (card) card.style.display = '';
+    var box = document.getElementById('confetti');
+    if (box && !box.firstChild) buildConfetti(box);   // built once, then reused
     document.body.classList.add('ending');
   }
 
-  /* Travel home behind the card, then fade it off the front. The card is not
-     fully opaque, so resetting after the fade began would show the route
-     snapping from deep space back to the nucleus through it. */
+  /* Start again means the route starts again, title card and all, so this hands
+     back to the opening rather than dropping you at the nucleus mid-journey.
+     The two cards cross-fade, which works because they are the same card.
+
+     Travel home BEFORE the fade: neither card is fully opaque, so resetting
+     afterwards would show the route snapping from deep space back to the
+     nucleus through them. */
   function restart() {
     if (!ending) return;
     ending = false;
@@ -1690,9 +1721,22 @@
     vel = 0;
     endArrivedAt = 0;
     settled = false;                     // parked frames are skipped; force one
+
     document.body.classList.remove('ending');
-    var card = document.getElementById('ending');
-    if (card) setTimeout(function () { card.style.display = 'none'; }, 700);
+    var outro = document.getElementById('ending');
+    if (outro) setTimeout(function () { outro.style.display = 'none'; }, 700);
+
+    var intro = document.getElementById('opening');
+    if (intro) {
+      intro.style.display = '';
+      /* It was display:none. Adding the class in the same frame would give the
+         browser one style to compute rather than two, and the card would appear
+         instantly instead of fading; reading a layout property forces the
+         intermediate recalc. */
+      void intro.offsetWidth;
+    }
+    opening = true;
+    document.body.classList.add('opening');
   }
 
   function attachInput() {
