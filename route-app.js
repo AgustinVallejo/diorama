@@ -1534,6 +1534,10 @@
     progress += vel * dt;
     if (Math.abs(targetP - progress) < 0.0004 && Math.abs(vel) < 0.002) { progress = targetP; vel = 0; }
 
+    /* When the last stop was reached, for the outro's grace period. */
+    if (progress >= stops.length - 1 - 0.02) { if (!endArrivedAt) endArrivedAt = t; }
+    else endArrivedAt = 0;
+
     // parked at a stop: render one last frame, then idle until something moves
     var moving = progress !== targetP || vel !== 0;
     if (!moving && settled) { requestAnimationFrame(frame); return; }
@@ -1636,22 +1640,83 @@
     return true;
   }
 
+  /* The outro. The route ends at Orbit with nowhere further to travel, so a
+     push past the end is the one gesture left that can only mean "done" --
+     which is also why it takes a firm one. A trackpad's momentum tail runs on
+     for a good while after the flick that carried you to the last stop, and at
+     a lower threshold it would close the route the instant you arrived.
+
+     Arrival is measured on `progress`, not on `targetP`: a hard flick from two
+     stops out sets the target immediately, and testing that would roll the
+     credits while the camera was still flying towards the last scene. */
+  var END_PUSH = 260;                    // wheel pixels past the end
+  var END_GRACE = 450;                   // ms of arrival to ignore first
+  var endPush = 0, endArrivedAt = 0, ending = false;
+
+  /* Arrived, and stood there a moment. The grace period is the whole point:
+     the flick that carries you to the last stop keeps delivering momentum
+     deltas long after the camera has settled, and without it that tail rolls
+     the credits over a scene you never got to look at. */
+  function atEnd() {
+    return endArrivedAt !== 0 && performance.now() - endArrivedAt >= END_GRACE;
+  }
+
+  /* Wheel deltas arrive as increments, a drag as an absolute distance from
+     where the finger went down; `absolute` keeps the drag from summing its own
+     position every pointermove. */
+  function pushEnd(px, absolute) {
+    if (opening || ending || !atEnd()) { endPush = 0; return; }
+    endPush = absolute ? Math.max(endPush, px) : endPush + px;
+    if (endPush >= END_PUSH) showEnding();
+  }
+
+  function showEnding() {
+    if (ending) return;
+    ending = true;
+    endPush = 0;
+    var card = document.getElementById('ending');
+    if (card) card.style.display = '';
+    document.body.classList.add('ending');
+  }
+
+  /* Travel home behind the card, then fade it off the front. The card is not
+     fully opaque, so resetting after the fade began would show the route
+     snapping from deep space back to the nucleus through it. */
+  function restart() {
+    if (!ending) return;
+    ending = false;
+    endPush = 0;
+    progress = targetP = 0;
+    vel = 0;
+    endArrivedAt = 0;
+    settled = false;                     // parked frames are skipped; force one
+    document.body.classList.remove('ending');
+    var card = document.getElementById('ending');
+    if (card) setTimeout(function () { card.style.display = 'none'; }, 700);
+  }
+
   function attachInput() {
     var card = document.getElementById('opening');
     if (card) card.addEventListener('click', function () { dismissOpening(); });
+    var endBtn = document.querySelector('#ending button');
+    if (endBtn) endBtn.addEventListener('click', restart);
 
     window.addEventListener('wheel', function (e) {
       e.preventDefault();
+      if (ending) return;                // no driving the route behind the card
       if (dismissOpening()) return;
       var d = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
       targetP = clamp(targetP + d * 0.0022, 0, stops.length - 1);
+      if (d > 0) pushEnd(d); else endPush = 0;
       scheduleSnap();
     }, { passive: false });
 
     window.addEventListener('keydown', function (e) {
       var k = e.key;
+      if (ending) return;
       if (dismissOpening()) { e.preventDefault(); return; }
       if (k === 'ArrowDown' || k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'j') {
+        pushEnd(END_PUSH);               // a keypress is already a firm push
         step(1); e.preventDefault();
       } else if (k === 'ArrowUp' || k === 'ArrowLeft' || k === 'PageUp' || k === 'k') {
         step(-1); e.preventDefault();
@@ -1673,6 +1738,7 @@
        Taken late it still does its job: it only matters once a gesture is a drag,
        and by then the slop is already exceeded. */
     viewport.addEventListener('pointerdown', function (e) {
+      if (ending) return;
       drag = { y: e.clientY, p: targetP, id: e.pointerId };
       dragged = false;
     });
@@ -1686,11 +1752,14 @@
         try { viewport.setPointerCapture(drag.id); } catch (err) { /* gone */ }
       }
       if (!dragged) return;
-      targetP = clamp(drag.p + (drag.y - e.clientY) / 240, 0, stops.length - 1);
+      var raw = drag.p + (drag.y - e.clientY) / 240;
+      targetP = clamp(raw, 0, stops.length - 1);
+      pushEnd((raw - (stops.length - 1)) * 240, true);
     });
     viewport.addEventListener('pointerup', function () {
       if (!drag) return;
       drag = null;
+      endPush = 0;                       // a new gesture starts the push over
       targetP = clamp(Math.round(targetP), 0, stops.length - 1);
     });
   }

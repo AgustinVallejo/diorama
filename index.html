@@ -411,7 +411,8 @@
     transition: opacity .7s ease; }
   body.hide-hud #hud, body.hide-hud #scrims { opacity: 0; }
   /* Nothing but the picture behind the title until the route is asked for. */
-  body.opening #hud, body.opening #scrims { opacity: 0; }
+  body.opening #hud, body.opening #scrims,
+  body.ending #hud, body.ending #scrims { opacity: 0; }
   #scrims { position: fixed; inset: 0; z-index: 7; pointer-events: none; }
   #scrims div { position: absolute; left: 0; right: 0; height: 130px; }
   #scrim-t { top: 0; height: 110px; background: linear-gradient(180deg, rgba(0,0,0,.26), transparent); }
@@ -479,26 +480,34 @@
   /* Below the readout, whatever height the readout happens to be. The scene's own
      labels fade out under it (see --passage), so this never lands on top of text. */
 
-  /* The opening. It sits over the first stop rather than over a blank, so the
-     nucleus is already turning behind the title. Anything dismisses it. */
-  #opening { position: fixed; inset: 0; z-index: 20; display: flex;
+  /* The two cards. The opening sits over the first stop rather than over a
+     blank, so the nucleus is already turning behind the title; anything
+     dismisses it. The ending is the same card at the far end and shares
+     everything but that: only its button closes it, or the overscroll that
+     opened it would throw it away in the same gesture. */
+  #opening, #ending { position: fixed; inset: 0; z-index: 20; display: flex;
     align-items: center; justify-content: center; text-align: center;
     padding: 24px; cursor: pointer; opacity: 0; pointer-events: none;
     transition: opacity .7s ease;
     background: radial-gradient(70% 60% at 50% 46%, rgba(6,9,16,.72), rgba(3,5,9,.93) 78%); }
-  body.opening #opening { opacity: 1; pointer-events: auto; }
-  #opening-inner { max-width: 560px; }
-  #opening h1 { margin: 0; font-size: clamp(30px, 6vw, 52px); font-weight: 650;
+  #ending { cursor: default; }
+  body.opening #opening, body.ending #ending { opacity: 1; pointer-events: auto; }
+  #opening-inner, #ending-inner { max-width: 560px; }
+  #opening h1, #ending h1 { margin: 0; font-size: clamp(30px, 6vw, 52px); font-weight: 650;
     letter-spacing: -.02em; color: #f4f8fd;
     text-shadow: 0 4px 40px rgba(0,0,0,.8); }
+  /* A sentence, not a title: it wants to sit a size down from "PhET Diorama". */
+  #ending h1 { font-size: clamp(25px, 4.4vw, 40px); line-height: 1.22; }
   #opening p { margin: 14px auto 0; font-size: clamp(14px, 2.2vw, 17px); line-height: 1.5;
     color: var(--ink-dim); max-width: 30em; }
-  #opening button { margin-top: 30px; font: 11px var(--mono); letter-spacing: .22em;
+  #opening .by { display: block; margin-top: 6px; color: rgba(232,238,246,.42); }
+  #opening button, #ending button { margin-top: 30px; font: 11px var(--mono); letter-spacing: .22em;
     text-transform: uppercase; color: var(--ink); cursor: pointer;
     padding: 11px 26px 12px; border-radius: 999px;
     background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.34);
     transition: background .16s ease, border-color .16s ease; }
-  #opening button:hover { background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.6); }
+  #opening button:hover, #ending button:hover {
+    background: rgba(255,255,255,.15); border-color: rgba(255,255,255,.6); }
   #opening-hint { margin-top: 20px; font: 9.5px/1.7 var(--mono); letter-spacing: .1em;
     color: rgba(232,238,246,.42); }
 </style>
@@ -535,9 +544,17 @@
   <div id="opening">
     <div id="opening-inner">
       <h1>PhET Diorama</h1>
-      <p>A journey through the universe of PhET physical simulations</p>
+      <p>A journey through the universe of PhET physical simulations.
+        <span class="by">Created by Agustín Vallejo and Claude</span></p>
       <button type="button">Begin</button>
       <div id="opening-hint">scroll or drag to travel · click a sim to open it</div>
+    </div>
+  </div>
+
+  <div id="ending">
+    <div id="ending-inner">
+      <h1>Thanks for 25 years of science education</h1>
+      <button type="button">Start again</button>
     </div>
   </div>
 

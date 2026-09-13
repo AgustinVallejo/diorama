@@ -64,6 +64,14 @@ The `_png.ts` / `_svg.ts` sidecar modules that shipped with both asset folders h
 been deleted (311 files). They are PhET's base64 build artefacts and nothing here
 imports them; if you ever need one back, it is regenerable from the image.
 
+The route is bracketed by two cards that share their styling. The opening sits over
+the first stop so the nucleus is already turning behind the title. The ending is
+reached by pushing past the last stop -- the only gesture there that can mean
+"done" -- and is closed only by its own button, which travels home behind the card
+before fading it off. Pushing past takes END_PUSH wheel pixels and only counts
+END_GRACE ms after arrival, or a trackpad's momentum tail would roll the credits
+over a scene nobody got to look at.
+
 Serve it rather than opening the file directly — `npx http-server -p 5177 -c-1` does it.
 (`.claude/` is git-ignored, so its launch config does not travel with a clone.)
 `file://` works via `route-data.js`, but the
