@@ -229,8 +229,7 @@
   // ------------------------------------------------------------------- state
   var R, stops, exps, zis, W, scenes = [], scaleById = {}, sectionOf = {}, passages = [];
   var simCount = {};
-  var progress = 0, targetP = 0, vel = 0, lastT = 0, snapTimer = null, settled = false;
-  var dragged = false;                     // the last pointer gesture travelled
+  var progress = 0, targetP = 0, vel = 0, lastT = 0, settled = false;
   var world, viewport, fit = 1;
   var humanFirst = 0, humanLast = 0;
 
@@ -396,8 +395,6 @@
     box.target = '_blank';
     box.rel = 'noopener noreferrer';
     box.title = sim.name + '  ·  ' + sim.slug + '  ·  opens at phet.colorado.edu';
-    // a drag that happens to start on a slot is travel, not a click
-    box.addEventListener('click', function (e) { if (dragged) e.preventDefault(); });
 
     var img = el('img', 'slot-thumb');
     img.src = a.thumb;
@@ -1342,6 +1339,8 @@
     hud.sky = document.getElementById('sky');
     hud.stars = document.getElementById('stars');
     hud.sun = document.getElementById('celestial');
+    hud.navPrev = document.getElementById('nav-prev');
+    hud.navNext = document.getElementById('nav-next');
 
     var ruler = document.getElementById('ruler');
     hud.ticks = [];
@@ -1401,6 +1400,14 @@
         ' · stop ' + (i + 1) + '/' + stops.length;
       var n = simCount[lm.id] || 0;
       hud.count.textContent = n + (n === 1 ? ' sim' : ' sims');
+
+      /* What each half of the picture would do from here. Forward off the last
+         stop is not a stop at all -- it is the end of the route -- and saying so
+         is the only warning the outro gets. */
+      var back = stops[i - 1], fwd = stops[i + 1];
+      hud.navPrev.classList.toggle('off', !back);
+      hud.navPrev.lastChild.textContent = back ? back.label : '';
+      hud.navNext.lastChild.textContent = fwd ? fwd.label : 'the end';
     }
 
     var lo = clamp(Math.floor(progress), 0, stops.length - 1), hi = clamp(lo + 1, 0, stops.length - 1);
@@ -1618,12 +1625,6 @@
   // ------------------------------------------------------------------- input
   function goTo(i) { targetP = clamp(i, 0, stops.length - 1); }
   function step(d) { goTo(Math.round(targetP) + d); }
-  function scheduleSnap() {
-    if (snapTimer) clearTimeout(snapTimer);
-    snapTimer = setTimeout(function () {
-      targetP = clamp(Math.round(targetP), 0, stops.length - 1);
-    }, 170);
-  }
 
   /* The opening card. It sits over the first stop rather than over nothing, so
      the nucleus is already turning behind the title. Anything at all dismisses
@@ -1649,7 +1650,7 @@
      Arrival is measured on `progress`, not on `targetP`: a hard flick from two
      stops out sets the target immediately, and testing that would roll the
      credits while the camera was still flying towards the last scene. */
-  var END_PUSH = 260;                    // wheel pixels past the end
+  var END_PUSH = 260;                    // what it takes to end the route
   var END_GRACE = 450;                   // ms of arrival to ignore first
   var endPush = 0, endArrivedAt = 0, ending = false;
 
@@ -1661,12 +1662,13 @@
     return endArrivedAt !== 0 && performance.now() - endArrivedAt >= END_GRACE;
   }
 
-  /* Wheel deltas arrive as increments, a drag as an absolute distance from
-     where the finger went down; `absolute` keeps the drag from summing its own
-     position every pointermove. */
-  function pushEnd(px, absolute) {
+  /* Counted in gestures now rather than in pixels, because travel is. A key or
+     a click is deliberate and worth the whole push on its own; a wheel flick is
+     worth less than half of one, since a trackpad's momentum tail can fire a
+     step or two by itself and no single flick should be able to end the route. */
+  function pushEnd(amount) {
     if (opening || ending || !atEnd()) { endPush = 0; return; }
-    endPush = absolute ? Math.max(endPush, px) : endPush + px;
+    endPush += amount;
     if (endPush >= END_PUSH) showEnding();
   }
 
@@ -1678,6 +1680,14 @@
      The negative animation-delay is the point of the whole thing: it starts
      every piece part-way through its fall, so the card fades up onto confetti
      already coming down instead of onto an empty sky that fills a beat later. */
+  /* -1 back, 1 forward, 0 neither. Both cards clear it on the way in: the class
+     outlives the pointer that set it, and the arrow would otherwise be lit on
+     whichever side the mouse happened to be resting on when the card arrived. */
+  function lightArrows(side) {
+    document.body.classList.toggle('nav-prev', side === -1);
+    document.body.classList.toggle('nav-next', side === 1);
+  }
+
   var CONFETTI = 84;
   function buildConfetti(host) {
     var keys = Object.keys(TOPIC_COLOR);
@@ -1699,6 +1709,7 @@
     if (ending) return;
     ending = true;
     endPush = 0;
+    lightArrows(0);
     var card = document.getElementById('ending');
     if (card) card.style.display = '';
     var box = document.getElementById('confetti');
@@ -1717,6 +1728,7 @@
     if (!ending) return;
     ending = false;
     endPush = 0;
+    lightArrows(0);
     progress = targetP = 0;
     vel = 0;
     endArrivedAt = 0;
@@ -1739,6 +1751,41 @@
     document.body.classList.add('opening');
   }
 
+  /* One gesture, one stop. Travel used to follow the wheel continuously and snap
+     wherever it stopped, and grabbing the picture dragged it the same way -- both
+     meant the distance you covered was decided by how hard your trackpad felt
+     like throwing you, over a route whose steps are octaves. It is discrete now:
+     deltas accumulate until they clear WHEEL_STEP, that fires exactly one stop,
+     and the cooldown swallows the rest of the flick.
+
+     WHEEL_STEP is low because it only has to clear trackpad noise -- a mouse
+     notch is 100 on its own, so the cheapest possible gesture on either device
+     is one stop. */
+  var WHEEL_STEP = 55;                   // delta that counts as one gesture
+  var WHEEL_COOLDOWN = 340;              // ms of the same flick to ignore after
+  var WHEEL_GAP = 160;                   // ms of quiet that starts a new gesture
+  var WHEEL_PUSH = 95;                   // a flick's worth against END_PUSH
+  var wheelAcc = 0, wheelAt = 0, wheelReadyAt = 0;
+
+  /* Everything that moves the route goes through here, so the end of the route
+     is handled once: forward off the last stop is not a stop, it is the outro. */
+  function travel(d, push) {
+    if (ending) return;
+    if (d > 0 && Math.round(targetP) >= stops.length - 1) { pushEnd(push); return; }
+    endPush = 0;                         // travelling away from the end abandons it
+    step(d);
+  }
+
+  /* Click a half of the picture to travel -- which makes the exceptions matter
+     more than the rule, since the whole viewport is now a control. A sim slot is
+     a link, the dots are a scrubber, and the two cards own their own clicks;
+     none of those are travel, and the arrows must not light over them either. */
+  function isTravel(t) {
+    if (!t || !t.closest) return false;
+    return !t.closest('a') && !t.closest('button') &&
+           !t.closest('#opening') && !t.closest('#ending');
+  }
+
   function attachInput() {
     var card = document.getElementById('opening');
     if (card) card.addEventListener('click', function () { dismissOpening(); });
@@ -1749,10 +1796,18 @@
       e.preventDefault();
       if (ending) return;                // no driving the route behind the card
       if (dismissOpening()) return;
-      var d = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
-      targetP = clamp(targetP + d * 0.0022, 0, stops.length - 1);
-      if (d > 0) pushEnd(d); else endPush = 0;
-      scheduleSnap();
+      var now = performance.now();
+      var d = e.deltaMode === 1 ? e.deltaY * 16 : (e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY);
+      // a gap means a new gesture: half a push you thought better of does not
+      // get to add itself to the next one
+      if (now - wheelAt > WHEEL_GAP) wheelAcc = 0;
+      wheelAt = now;
+      if (now < wheelReadyAt) return;    // still inside the flick that just fired
+      wheelAcc += d;
+      if (Math.abs(wheelAcc) < WHEEL_STEP) return;
+      travel(wheelAcc > 0 ? 1 : -1, WHEEL_PUSH);
+      wheelAcc = 0;
+      wheelReadyAt = now + WHEEL_COOLDOWN;
     }, { passive: false });
 
     window.addEventListener('keydown', function (e) {
@@ -1760,10 +1815,9 @@
       if (ending) return;
       if (dismissOpening()) { e.preventDefault(); return; }
       if (k === 'ArrowDown' || k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'j') {
-        pushEnd(END_PUSH);               // a keypress is already a firm push
-        step(1); e.preventDefault();
+        travel(1, END_PUSH); e.preventDefault();   // a keypress is already a firm push
       } else if (k === 'ArrowUp' || k === 'ArrowLeft' || k === 'PageUp' || k === 'k') {
-        step(-1); e.preventDefault();
+        travel(-1, END_PUSH); e.preventDefault();
       } else if (k === 'Home') { goTo(0); }
       else if (k === 'End') { goTo(stops.length - 1); }
       else if (k === 'l') { document.body.classList.toggle('hide-legend'); }
@@ -1771,40 +1825,26 @@
       else if (k === 't') { document.body.classList.toggle('bare-slots'); }
     });
 
-    var drag = null;
-    /* Capture is taken LATE, on the first pointermove that clears the slop, and
-       never on a plain press. While an element holds pointer capture the browser
-       retargets the compatibility mouse events to it — including `click` — so
-       capturing here on pointerdown meant every click on a sim slot was delivered
-       to the viewport instead of to the link, and the link silently never fired.
-       Hover still worked, which is what made it look like a styling problem.
+    /* Click, not pointerdown: a click is what a link is, so letting the browser
+       decide which one happened is what keeps a press on a slot from also
+       travelling. Touch gets this for free -- a tap is a click. */
+    viewport.addEventListener('click', function (e) {
+      if (ending || opening) return;
+      if (!isTravel(e.target)) return;
+      travel(e.clientX < window.innerWidth / 2 ? -1 : 1, END_PUSH);
+    });
 
-       Taken late it still does its job: it only matters once a gesture is a drag,
-       and by then the slop is already exceeded. */
-    viewport.addEventListener('pointerdown', function (e) {
-      if (ending) return;
-      drag = { y: e.clientY, p: targetP, id: e.pointerId };
-      dragged = false;
+    /* The arrows say which half you are on before you commit to clicking it.
+       Nothing here reads the pointer's position on its own -- a mousemove is the
+       only event that knows both where the pointer is and what is under it, and
+       the second half is what keeps the arrows dark over a sim. */
+    window.addEventListener('mousemove', function (e) {
+      if (ending || opening || !isTravel(e.target)) { lightArrows(0); return; }
+      lightArrows(e.clientX < window.innerWidth / 2 ? -1 : 1);
     });
-    viewport.addEventListener('pointermove', function (e) {
-      if (!drag) return;
-      // 4px of slop: a click on a slot is never perfectly still
-      if (!dragged && Math.abs(e.clientY - drag.y) > 4) {
-        dragged = true;
-        // a pointer that has already gone away throws; losing the capture is a
-        // better outcome than losing the rest of the handler
-        try { viewport.setPointerCapture(drag.id); } catch (err) { /* gone */ }
-      }
-      if (!dragged) return;
-      var raw = drag.p + (drag.y - e.clientY) / 240;
-      targetP = clamp(raw, 0, stops.length - 1);
-      pushEnd((raw - (stops.length - 1)) * 240, true);
-    });
-    viewport.addEventListener('pointerup', function () {
-      if (!drag) return;
-      drag = null;
-      endPush = 0;                       // a new gesture starts the push over
-      targetP = clamp(Math.round(targetP), 0, stops.length - 1);
+    // relatedTarget is null only when the pointer has left the window entirely
+    window.addEventListener('mouseout', function (e) {
+      if (!e.relatedTarget) lightArrows(0);
     });
   }
 

@@ -457,9 +457,13 @@
   #legend .sw { order: 3; width: 7px; height: 7px; border-radius: 50%; }
   #legend .n { order: 2; opacity: .5; min-width: 14px; text-align: right; }
 
+  /* The row spans the window but only the dots are in it: now that clicking a
+     half of the picture travels, a full-width strip that swallows clicks and
+     does nothing with them would be a dead band across the bottom. */
   #dots { position: absolute; left: 0; right: 0; bottom: 52px; display: flex;
-    justify-content: center; align-items: flex-end; pointer-events: auto; }
-  .dot-stop { position: relative; width: 30px; height: 30px; background: none; border: 0;
+    justify-content: center; align-items: flex-end; pointer-events: none; }
+  .dot-stop { pointer-events: auto;
+    position: relative; width: 30px; height: 30px; background: none; border: 0;
     padding: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .dot-stop.gap { margin-left: 18px; }
   .dot-mark { width: 6px; height: 6px; border-radius: 50%; background: var(--rule);
@@ -476,6 +480,32 @@
     font: 9.5px/1.7 var(--mono); letter-spacing: .1em; color: var(--ink-dim);
     text-shadow: 0 1px 5px rgba(0,0,0,.8); }
   kbd { font: inherit; padding: 0 3px; border: 1px solid var(--rule); border-radius: 3px; }
+
+  /* The two travel arrows. Clicking a half of the picture is the main way
+     through the route, which is a control with nothing to look at -- so these
+     sit at the top and answer the only two questions it raises: that the halves
+     do something, and which stop this one would take you to. They are barely
+     there until the pointer picks a side, because for most of the route the
+     picture is the point and a lit chevron is not. */
+  #nav { position: absolute; left: 0; right: 0; top: 16px; display: flex;
+    justify-content: center; gap: 116px; pointer-events: none; }
+  /* The chevron is the fixed thing and the label hangs off it: laid out in flow
+     the label's width would be half of its arrow's, and the pair would sit
+     off-centre by a different amount at every stop. */
+  .nav-arrow { position: relative; width: 22px; text-align: center;
+    opacity: .13; transition: opacity .28s ease; }
+  .nav-arrow i { font: 300 30px/1 var(--mono); font-style: normal; color: var(--ink); }
+  .nav-arrow span { position: absolute; top: 34px; left: 50%; display: block;
+    font: 9.5px var(--mono); letter-spacing: .1em; color: var(--ink-dim);
+    max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    text-shadow: 0 1px 5px rgba(0,0,0,.8);
+    opacity: 0; transform: translate(-50%, -3px); transition: all .28s ease; }
+  body.nav-prev #nav-prev, body.nav-next #nav-next { opacity: .82; }
+  body.nav-prev #nav-prev span, body.nav-next #nav-next span {
+    opacity: .75; transform: translate(-50%, 0); }
+  /* After the lit rules, so the first stop's back arrow stays dark under hover. */
+  #nav .nav-arrow.off { opacity: .05; }
+  #nav .nav-arrow.off span { opacity: 0; }
 
   /* Below the readout, whatever height the readout happens to be. The scene's own
      labels fade out under it (see --passage), so this never lands on top of text. */
@@ -567,8 +597,13 @@
     <div id="legend"></div>
     <div id="dots"></div>
 
+    <div id="nav">
+      <div class="nav-arrow" id="nav-prev"><i>‹</i><span></span></div>
+      <div class="nav-arrow" id="nav-next"><i>›</i><span></span></div>
+    </div>
+
     <div id="hints">
-      scroll / drag to travel<br>
+      click either side of the picture, or scroll, to travel<br>
       <kbd>↑</kbd><kbd>↓</kbd> stop to stop · <kbd>Home</kbd><kbd>End</kbd> ends<br>
       click a sim to open it at phet.colorado.edu<br>
       <kbd>l</kbd> legend · <kbd>t</kbd> captions · <kbd>h</kbd> hide hud
@@ -581,7 +616,7 @@
       <p>A journey through the universe of PhET physical simulations.
         <span class="by">Created by Agustín Vallejo and Claude</span></p>
       <button type="button">Begin</button>
-      <div id="opening-hint">scroll or drag to travel · click a sim to open it</div>
+      <div id="opening-hint">click either side to travel · click a sim to open it</div>
     </div>
   </div>
 

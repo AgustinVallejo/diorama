@@ -71,9 +71,12 @@ reached by pushing past the last stop -- the only gesture there that can mean
 and then hands back to the opening, so Start again means the title card too. It
 arrives slowly and in three stages (ground, then message, then button) under
 confetti in the seven topic colours: the legend's seven, so the route is what
-comes down at the end. Pushing past takes END_PUSH wheel pixels and only counts
-END_GRACE ms after arrival, or a trackpad's momentum tail would roll the credits
-over a scene nobody got to look at.
+comes down at the end. Pushing past takes END_PUSH worth of gestures and only
+counts END_GRACE ms after arrival, or a trackpad's momentum tail would roll the
+credits over a scene nobody got to look at. A key or a click is worth the whole
+push on its own; a wheel flick is worth WHEEL_PUSH, less than half of one,
+because the tail can fire a step or two by itself and no single flick should be
+able to end the route.
 
 Serve it rather than opening the file directly — `npx http-server -p 5177 -c-1` does it.
 (`.claude/` is git-ignored, so its launch config does not travel with a clone.)
@@ -192,6 +195,32 @@ the scene's own labels out while it lasts. The moment the sim names are
 irrelevant is the moment they would be covering the thing you came for. Both
 passages still carry their notes in the manifest, where they are notes to
 whoever is editing it.
+
+**Travel is discrete, and one gesture is one stop.** The camera used to follow
+the wheel continuously and snap wherever it stopped, and grabbing the picture
+dragged it the same way. Both let the trackpad decide how far you went over a
+route whose steps are octaves: one flick could cross three scales, and the drag
+in particular never felt like it was holding anything. What replaced them:
+
+- **Wheel.** Deltas accumulate until they clear `WHEEL_STEP`, that fires exactly
+  one stop, and `WHEEL_COOLDOWN` swallows the rest of the flick. `WHEEL_STEP` is
+  low (55) because it only has to clear trackpad noise — a mouse notch is 100 on
+  its own, so the cheapest gesture either device can make is worth one stop. A
+  quiet gap of `WHEEL_GAP` resets the accumulator, so half a push you thought
+  better of does not add itself to the next one.
+- **Click a half of the picture.** Left goes back, right goes forward. This is
+  the primary control now and it is the one that works on a touchscreen, where a
+  tap is a click and there is no wheel at all.
+- **Two arrows at the top**, `#nav`, barely visible until the pointer picks a
+  side. They are the only thing that says the halves do anything, and each one
+  names the stop it would take you to — forward off the last stop says *the end*,
+  which is the outro's only warning. They stay dark over a sim slot or a dot,
+  because clicking there is not travel, which is also why the hover lives on
+  `mousemove`: it is the only event that knows both where the pointer is and
+  what is under it.
+
+Every gesture goes through `travel(d, push)`, so the end of the route is handled
+in one place rather than in each handler.
 
 ## The abstract scales
 
@@ -371,24 +400,18 @@ Two things it does need:
 
 - `rel="noopener noreferrer"`, because `target="_blank"` otherwise hands the sim
   a live `window.opener` back into this page.
-- A way to tell a click from a drag. The viewport listens for pointer gestures to
-  travel the route, and a drag that happens to start on a slot must not also open
-  a tab when it ends. `dragged` is set once a gesture moves more than 4px, and the
-  slot's click handler calls `preventDefault` when it is set. Four pixels because
-  a real click is never perfectly still. `dragged` is cleared on the next
-  pointerdown, not on pointerup — the click the browser fires at the end of a drag
-  arrives *after* pointerup, and clearing it there would let every drag that ended
-  on a slot open a tab.
-- **Pointer capture is taken late, and this is load-bearing.** The viewport used to
-  call `setPointerCapture` in its pointerdown handler. While an element holds
-  pointer capture the browser retargets the compatibility mouse events to it —
-  `click` included — so every click on a sim slot was being delivered to the
-  viewport instead of to the link, and the link simply never fired. Hover still
-  worked, because that is a pointer event and not a compatibility one, which is
-  exactly what makes this look like a styling problem rather than an input one.
-  Capture is now taken on the first pointermove that clears the slop and never on
-  a plain press. It still does its job: it only matters once a gesture is a drag,
-  and by then the slop is already exceeded.
+- Nothing else. Clicking a half of the picture travels, so the viewport is now a
+  control and the slot sits inside it — but the viewport listens for `click`, not
+  for pointer gestures, so the browser decides which of the two happened and a
+  press on a slot is simply not a travel click. `isTravel()` is the whole rule:
+  anything inside an `<a>`, a `<button>`, or either card is not travel.
+
+  This replaced a pointer-drag that had cost real time. Two things worth keeping
+  out of any future revival of it: the slot needed a 4px slop flag so a drag
+  ending on it did not also open a tab, and `setPointerCapture` on pointerdown
+  silently broke every slot link — while an element holds capture the browser
+  retargets the compatibility mouse events to it, `click` included, so the link
+  never fired while hover still worked, which reads as a styling bug.
 
 If an in-page launch is ever wanted after all, the modal-trap rules still apply
 and are worth reading in the git history of this file before starting.
@@ -548,7 +571,7 @@ Also: set `allow` restrictively or several sims will chirp at once.
 - **0 — Manifest.** ✅ Done, templates verified — see **Thumbnails** below.
 - **1 — The route itself.** ← *you are here, and it traverses.* Drawn geometry for
   landmarks, each sim showing its own screenshot at 1.2x sim-icon size. Discrete camera stops, eased
-  transitions, arrows / scroll / drag / dot-strip all work. Built on top of that:
+  transitions, arrows / scroll / click-a-half / dot-strip all work. Built on top of that:
   three parallax depth layers per scene (`--pf` / `--pxu` / `--pyu`, see the CSS), a
   single light source that travels the route so the day arc runs alongside the scale
   arc (morning at the beach → sunset behind the Flatirons → stars by orbit), a star
